@@ -15,7 +15,8 @@ const (
 	WidepagePolicySplitAndPreserve
 )
 
-func cropAndSplit(img image.Image, widepage WidepagePolicy, autocrop bool, ltr bool) []image.Image {
+// CropAndSplit processes an image for manga pages, applying optional cropping and page splitting
+func CropAndSplit(img image.Image, widepage WidepagePolicy, autocrop bool, ltr bool) []image.Image {
 	if autocrop {
 		croppedImg, err := crop.Crop(img, crop.Bounds(img))
 		if err != nil {
@@ -34,21 +35,18 @@ func cropAndSplit(img image.Image, widepage WidepagePolicy, autocrop bool, ltr b
 		case WidepagePolicySplit:
 			if ltr {
 				return []image.Image{left, right}
-			} else {
-				return []image.Image{right, left}
 			}
+			return []image.Image{right, left}
 		case WidepagePolicyPreserveAndSplit:
 			if ltr {
 				return []image.Image{img, left, right}
-			} else {
-				return []image.Image{img, right, left}
 			}
+			return []image.Image{img, right, left}
 		case WidepagePolicySplitAndPreserve:
 			if ltr {
 				return []image.Image{left, right, img}
-			} else {
-				return []image.Image{right, left, img}
 			}
+			return []image.Image{right, left, img}
 		}
 	}
 

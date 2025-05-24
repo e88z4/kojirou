@@ -123,6 +123,94 @@ Kojirou can be configured to fall back on reencoded lower-quality versions of th
 kojirou d86cf65b-5f6c-437d-a0af-19a31f94ec55 -l en --data-saver=fallback
 ```
 
+## Format Support
+
+Kojirou now supports multiple output formats:
+
+- **MOBI**: Standard format for Kindle devices (default)
+- **EPUB**: Standard e-book format supported by most e-readers
+- **KEPUB**: Kobo-specific format with enhanced reading features
+
+## Format Selection
+
+Use the `--file-type` flag to specify which formats to generate:
+
+```bash
+kojirou --file-type=mobi,epub path/to/manga
+```
+
+You can specify one or more formats, separated by commas. If no format is specified, MOBI is used as the default.
+
+### Format-Specific Features
+
+Each format has specific characteristics and features:
+
+#### MOBI
+- Best compatibility with Kindle devices
+- Fixed image sizing optimized for Kindle screens
+- Built-in support for manga-style (right-to-left) reading
+
+#### EPUB
+- Universal compatibility with most e-readers
+- Support for both left-to-right and right-to-left reading
+- Follows EPUB 3.0 standards
+- Various image processing options
+
+#### KEPUB
+- Enhanced reading experience on Kobo devices
+- Better page turn performance
+- Support for Kobo's reading statistics and other features
+- Based on EPUB with Kobo-specific enhancements
+
+For more details about format-specific considerations, see [Format Documentation](docs/formats.md).
+
+## Advanced Format Options
+
+### Reading Direction
+
+Control reading direction with the `--ltr` flag:
+
+```bash
+kojirou --file-type=epub --ltr path/to/manga
+```
+
+- With `--ltr`: Left-to-right reading (Western style)
+- Without `--ltr`: Right-to-left reading (Manga style, default)
+
+### Wide Page Handling
+
+Control how wide pages are processed with the `--widepage` flag:
+
+```bash
+kojirou --file-type=epub --widepage=split path/to/manga
+```
+
+Options:
+- `preserve`: Keep wide pages as-is (default)
+- `split`: Split wide pages into two separate pages
+- `scale`: Scale down wide pages to fit standard dimensions
+
+### Image Processing
+
+Control image processing with the `--crop` flag:
+
+```bash
+kojirou --file-type=epub --crop path/to/manga
+```
+
+This automatically removes unnecessary borders from images.
+
+## Documentation
+
+For more detailed information, refer to these documentation files:
+
+- [Command-Line Options](docs/commands.md): Complete list of all available command-line options
+- [Example Commands](docs/examples.md): Practical examples for common usage scenarios
+- [Format Considerations](docs/formats.md): Details about EPUB, KEPUB, and format-specific features
+- [Testing Documentation](docs/testing.md): Information about test coverage and methodology
+- [Troubleshooting Guide](docs/troubleshooting.md): Solutions for common issues
+- [Performance Optimization](docs/performance.md): Guidelines for optimizing performance
+
 ## Prebuilt binaries
 
 Prebuilt binaries for Linux, Windows and MacOS on x86 and ARM processors are provided.

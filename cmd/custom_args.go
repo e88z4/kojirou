@@ -68,8 +68,10 @@ func (p *WidepagePolicyArg) Set(v string) error {
 		*p = WidepagePolicyArg(kindle.WidepagePolicyPreserveAndSplit)
 	case "split-and-preserve":
 		*p = WidepagePolicyArg(kindle.WidepagePolicySplitAndPreserve)
+	case "both":
+		*p = WidepagePolicyArg(kindle.WidepagePolicyPreserveAndSplit)
 	default:
-		return fmt.Errorf(`must be one of: "preserve", "split", or "both"`)
+		return fmt.Errorf(`must be one of: "preserve", "split", "preserve-and-split", "split-and-preserve", or "both"`)
 	}
 
 	return nil

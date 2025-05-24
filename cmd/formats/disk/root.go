@@ -11,10 +11,23 @@ import (
 	"os"
 	"path"
 
-	"github.com/leotaku/kojirou/cmd/formats"
+	"github.com/leotaku/kojirou/cmd/formats/progress"
 	md "github.com/leotaku/kojirou/mangadex"
 	"golang.org/x/text/language"
 )
+
+var langs = []language.Tag{
+	language.Make("ja-JP"),
+	language.Make("en-US"),
+	language.Make("en-GB"),
+	language.Make("de-DE"),
+	language.Make("fr-FR"),
+	language.Make("it-IT"),
+	language.Make("es-ES"),
+	language.Make("es-MX"),
+	language.Make("pt-PT"),
+	language.Make("pt-BR"),
+}
 
 func LoadSkeleton(directory string) (*md.Manga, error) {
 	info := md.MangaInfo{
@@ -27,7 +40,7 @@ func LoadSkeleton(directory string) (*md.Manga, error) {
 	}, nil
 }
 
-func LoadChapters(directory string, lang language.Tag, p formats.Progress) (md.ChapterList, error) {
+func LoadChapters(directory string, lang language.Tag, p progress.Progress) (md.ChapterList, error) {
 	result := make(md.ChapterList, 0)
 	volumes, err := os.ReadDir(directory)
 	if err != nil {
@@ -65,7 +78,7 @@ func LoadChapters(directory string, lang language.Tag, p formats.Progress) (md.C
 	return result, nil
 }
 
-func LoadPages(cl md.ChapterList, p formats.Progress) (md.ImageList, error) {
+func LoadPages(cl md.ChapterList, p progress.Progress) (md.ImageList, error) {
 	result := make(md.ImageList, 0)
 	for _, chap := range cl {
 		pages, err := os.ReadDir(chap.Info.ID)
@@ -98,7 +111,7 @@ func LoadPages(cl md.ChapterList, p formats.Progress) (md.ImageList, error) {
 	return result, nil
 }
 
-func LoadCovers(directory string, p formats.Progress) (md.ImageList, error) {
+func LoadCovers(directory string, p progress.Progress) (md.ImageList, error) {
 	result := make(md.ImageList, 0)
 	volumes, err := os.ReadDir(directory)
 	if err != nil {

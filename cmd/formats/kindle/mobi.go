@@ -43,7 +43,7 @@ func GenerateMOBI(manga mangadex.Manga, widepage WidepagePolicy, crop bool, ltr 
 			groupNames = append(groupNames, chap.Info.GroupNames...)
 			pages := make([]string, 0)
 			for _, img := range chap.Sorted() {
-				images = append(images, cropAndSplit(img, widepage, crop, ltr)...)
+				images = append(images, CropAndSplit(img, widepage, crop, ltr)...)
 				pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
 				pageImageIndex++
 			}
@@ -83,12 +83,14 @@ func mangaToUniqueID(manga mangadex.Manga) uint32 {
 }
 
 func mangaToTitle(manga mangadex.Manga) string {
+	if manga.Info.Title == "" {
+		return ""
+	}
 	nums := make([]string, 0)
 	for _, idx := range manga.Keys() {
 		nums = append(nums, idx.String())
 	}
 	sn := strings.Join(nums, ", ")
-
 	return fmt.Sprintf("%v: %v", manga.Info.Title, sn)
 }
 

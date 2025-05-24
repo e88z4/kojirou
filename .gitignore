@@ -1,0 +1,65 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Output of the go coverage tool, build, and test artifacts
+*.out
+*.coverprofile
+*.cov
+*.test
+*.prof
+*.profraw
+*.profdata
+*.tmp
+*.log
+
+# Go workspace and build directories
+bin/
+build/
+dist/
+
+# Dependency directories (vendor/ is optional if vendoring)
+vendor/
+
+# IDE/editor/project files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.DS_Store
+
+# Go module files (if you want to ignore local replace targets)
+replace-
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Test cache
+testdata/
+
+# Ignore coverage and profiling files
+coverage.out
+*.cover
+*.coverprofile
+*.cov
+*.prof
+*.profraw
+*.profdata
+
+# Ignore local config
+.env
+.env.*
+
+# Ignore user scripts and temp files
+*.bak
+*.tmp
+*.new
+
+# Ignore Python and shell scripts in contrib (optional)
+contrib/*.pyc
+contrib/*.sh~

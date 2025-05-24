@@ -4,6 +4,7 @@ import (
 	"os"
 	"runtime/pprof"
 
+	"github.com/leotaku/kojirou/cmd/formats"
 	"github.com/spf13/cobra"
 )
 
@@ -28,11 +29,12 @@ var (
 	volumesFilter       string
 	helpRankingFlag     bool
 	helpFilterFlag      bool
+	FormatsArg          string
 )
 
 var rootCmd = &cobra.Command{
 	Use:     "kojirou [flags..] <identifier>",
-	Short:   "Generate Kindle-compatible e-books from MangaDex",
+	Short:   "Generate e-books from MangaDex in multiple formats",
 	Version: "0.1",
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -50,6 +52,11 @@ var rootCmd = &cobra.Command{
 			if err := pprof.StartCPUProfile(f); err != nil {
 				return err
 			}
+		}
+
+		// Validate formats
+		if _, err := formats.ParseFormats(FormatsArg); err != nil {
+			return err
 		}
 
 		return nil
@@ -167,6 +174,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.Flags().StringVarP(&FormatsArg, "file-type", "t", "", "output file type(s), e.g. mobi,epub,kepub")
 	rootCmd.Flags().StringVarP(&languageArg, "language", "l", "en", "language for chapter downloads")
 	rootCmd.Flags().StringVarP(&rankArg, "rank", "r", "most", "chapter ranking method to use")
 	rootCmd.Flags().BoolVarP(&autocropArg, "autocrop", "a", false, "crop whitespace from pages automatically")

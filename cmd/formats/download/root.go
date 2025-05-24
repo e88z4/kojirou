@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
-	"github.com/leotaku/kojirou/cmd/formats"
+	"github.com/leotaku/kojirou/cmd/formats/progress"
 	md "github.com/leotaku/kojirou/mangadex"
 	"golang.org/x/sync/errgroup"
 )
@@ -55,7 +55,7 @@ func MangadexChapters(mangaID string) (md.ChapterList, error) {
 	return mangadexClient.FetchChapters(context.TODO(), mangaID)
 }
 
-func MangadexCovers(manga *md.Manga, p formats.Progress) (md.ImageList, error) {
+func MangadexCovers(manga *md.Manga, p progress.Progress) (md.ImageList, error) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -75,7 +75,7 @@ func MangadexCovers(manga *md.Manga, p formats.Progress) (md.ImageList, error) {
 		close(coverPaths)
 	}()
 
-	coverImages, eg := pathsToImages(coverPaths, ctx, cancel, DataSaverPolicyNo)
+	coverImages, eg := pathsToImages(coverPaths, ctx, cancel, p)
 
 	results := make(md.ImageList, len(covers))
 	for coverImage := range coverImages {
@@ -90,7 +90,7 @@ func MangadexCovers(manga *md.Manga, p formats.Progress) (md.ImageList, error) {
 	}
 }
 
-func MangadexPages(chapterList md.ChapterList, policy DataSaverPolicy, p formats.Progress) (md.ImageList, error) {
+func MangadexPages(chapterList md.ChapterList, policy DataSaverPolicy, p progress.Progress) (md.ImageList, error) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -108,7 +108,7 @@ func MangadexPages(chapterList md.ChapterList, policy DataSaverPolicy, p formats
 	paths, childEg := chaptersToPaths(chapters, ctx, cancel, p)
 	eg.Go(childEg.Wait)
 
-	images, childEg := pathsToImages(paths, ctx, cancel, policy)
+	images, childEg := pathsToImages(paths, ctx, cancel, p)
 	eg.Go(childEg.Wait)
 
 	results := make(md.ImageList, 0)
@@ -128,7 +128,7 @@ func chaptersToPaths(
 	chapters <-chan md.Chapter,
 	ctx context.Context,
 	cancel context.CancelFunc,
-	p formats.Progress,
+	p progress.Progress,
 ) (<-chan md.Path, *errgroup.Group) {
 	ch := make(chan md.Path)
 	eg, ctx := errgroup.WithContext(ctx)
@@ -177,7 +177,7 @@ func pathsToImages(
 	paths <-chan md.Path,
 	ctx context.Context,
 	cancel context.CancelFunc,
-	policy DataSaverPolicy,
+	p progress.Progress,
 ) (<-chan md.Image, *errgroup.Group) {
 	ch := make(chan md.Image)
 	eg, ctx := errgroup.WithContext(ctx)
@@ -193,7 +193,7 @@ func pathsToImages(
 					return nil
 				}
 				eg.Go(func() error {
-					img, err := getImageWithPolicy(httpClient, ctx, path, policy)
+					img, err := getImageWithPolicy(httpClient, ctx, path, DataSaverPolicyNo)
 					if err != nil {
 						defer cancel()
 						return fmt.Errorf("chapter %v: image %v: %w", path.ChapterIdentifier, path.ImageIdentifier, err)
