@@ -549,7 +549,7 @@ func verifyEPUBStructure(t *testing.T, epubPath string, ltr bool) {
 		"META-INF/container.xml",
 		"EPUB/package.opf",
 		"EPUB/nav.xhtml",
-		"EPUB/style.css",
+		"EPUB/css/style.css",
 	}
 
 	for _, requiredFile := range requiredFiles {
