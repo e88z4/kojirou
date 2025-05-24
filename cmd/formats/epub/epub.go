@@ -131,6 +131,10 @@ func GenerateEPUB(manga mangadex.Manga, widepage kindle.WidepagePolicy, crop boo
 
 	// For each volume and chapter, add pages with deterministic image names
 	for volID, vol := range manga.Volumes {
+		// Check for empty chapters in volume
+		if len(vol.Chapters) == 0 {
+			return nil, nil, fmt.Errorf("volume %v has no chapters", volID)
+		}
 		// Sort chapter keys to ensure deterministic chapter order
 		var chapKeys []mangadex.Identifier
 		for k := range vol.Chapters {
@@ -145,7 +149,10 @@ func GenerateEPUB(manga mangadex.Manga, widepage kindle.WidepagePolicy, crop boo
 			if sectionTitle == "" {
 				sectionTitle = "Untitled Chapter"
 			}
-
+			// Check for empty pages in chapter
+			if len(chap.Pages) == 0 {
+				return nil, nil, fmt.Errorf("chapter %q has no pages", sectionTitle)
+			}
 			// Build HTML for this chapter with all images, in sorted order
 			var htmlContent string
 			// Sort page keys to ensure deterministic order
