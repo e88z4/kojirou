@@ -44,7 +44,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	epubPath := filepath.Join(tempDir, "test.epub")
 	t.Run("EPUB Generation", func(t *testing.T) {
 		// Generate EPUB
-		epubObj, cleanupObj, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+		epubObj, cleanupObj, err := GenerateEPUB(tempDir, manga, kindle.WidepagePolicyPreserve, false, true)
 		if err != nil {
 			t.Fatalf("GenerateEPUB() failed: %v", err)
 		}
@@ -138,7 +138,7 @@ func TestSimultaneousFormatGeneration(t *testing.T) {
 	kepubPath := filepath.Join(tempDir, "test.kepub.epub")
 
 	// Generate EPUB with LTR setting
-	epubLTR, cleanupLTR, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+	epubLTR, cleanupLTR, err := GenerateEPUB(tempDir, manga, kindle.WidepagePolicyPreserve, false, true)
 	if err != nil {
 		t.Fatalf("GenerateEPUB(LTR) failed: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestSimultaneousFormatGeneration(t *testing.T) {
 	}
 
 	// Generate EPUB with RTL setting
-	epubRTL, cleanupRTL, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+	epubRTL, cleanupRTL, err := GenerateEPUB(tempDir, manga, kindle.WidepagePolicyPreserve, false, false)
 	if err != nil {
 		t.Fatalf("GenerateEPUB(RTL) failed: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestSimultaneousFormatGeneration(t *testing.T) {
 	}
 
 	// Generate EPUB with page splitting
-	epubSplit, cleanupSplit, err := GenerateEPUB(manga, kindle.WidepagePolicySplit, false, true)
+	epubSplit, cleanupSplit, err := GenerateEPUB(tempDir, manga, kindle.WidepagePolicySplit, false, true)
 	if err != nil {
 		t.Fatalf("GenerateEPUB(Split) failed: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestOutputFileStructure(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Generate EPUB
 			manga := tc.manga()
-			epubObj, cleanupObj, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epubObj, cleanupObj, err := GenerateEPUB(tempDir, manga, kindle.WidepagePolicyPreserve, false, true)
 			if err != nil {
 				t.Fatalf("GenerateEPUB() failed: %v", err)
 			}

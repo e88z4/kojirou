@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -96,9 +96,9 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 					},
 				}
 
-				epubObj, cleanup, _ := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+				epubObj, cleanup, _ := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if cleanup != nil {
-					defer cleanup()
+					/* cleanup() will be called after all conversions below */
 				}
 				return epubObj
 			},
@@ -202,7 +202,7 @@ func TestKEPUBMangaSpecificMetadata(t *testing.T) {
 	}
 
 	// Generate EPUB
-	epubObj, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+	epubObj, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
@@ -238,7 +238,7 @@ func verifyKEPUBMetadata(t *testing.T, data []byte, originalEpub *epub.Epub) {
 				t.Fatalf("Failed to open OPF file: %v", err)
 			}
 
-			contentBytes, err := ioutil.ReadAll(rc)
+			contentBytes, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
 				t.Fatalf("Failed to read OPF content: %v", err)
@@ -302,7 +302,7 @@ func verifyKoboMetadataExtensions(t *testing.T, data []byte) {
 				t.Fatalf("Failed to open OPF file: %v", err)
 			}
 
-			contentBytes, err := ioutil.ReadAll(rc)
+			contentBytes, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
 				t.Fatalf("Failed to read OPF content: %v", err)
@@ -353,7 +353,7 @@ func verifyMangaMetadataInKEPUB(t *testing.T, data []byte, originalManga md.Mang
 				t.Fatalf("Failed to open OPF file: %v", err)
 			}
 
-			contentBytes, err := ioutil.ReadAll(rc)
+			contentBytes, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
 				t.Fatalf("Failed to read OPF content: %v", err)

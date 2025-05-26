@@ -75,7 +75,7 @@ func MangadexCovers(manga *md.Manga, p progress.Progress) (md.ImageList, error) 
 		close(coverPaths)
 	}()
 
-	coverImages, eg := pathsToImages(coverPaths, ctx, cancel, p)
+	coverImages, eg := pathsToImages(coverPaths, ctx, cancel)
 
 	results := make(md.ImageList, len(covers))
 	for coverImage := range coverImages {
@@ -108,7 +108,7 @@ func MangadexPages(chapterList md.ChapterList, policy DataSaverPolicy, p progres
 	paths, childEg := chaptersToPaths(chapters, ctx, cancel, p)
 	eg.Go(childEg.Wait)
 
-	images, childEg := pathsToImages(paths, ctx, cancel, p)
+	images, childEg := pathsToImages(paths, ctx, cancel)
 	eg.Go(childEg.Wait)
 
 	results := make(md.ImageList, 0)
@@ -177,7 +177,6 @@ func pathsToImages(
 	paths <-chan md.Path,
 	ctx context.Context,
 	cancel context.CancelFunc,
-	p progress.Progress,
 ) (<-chan md.Image, *errgroup.Group) {
 	ch := make(chan md.Image)
 	eg, ctx := errgroup.WithContext(ctx)

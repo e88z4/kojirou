@@ -20,12 +20,12 @@ func TestMultiFormatGeneration(t *testing.T) {
 	manga := createTestManga()
 
 	// Generate EPUB
-	epubObj, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+	epubObj, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
 	if cleanup != nil {
-		defer cleanup()
+		// defer cleanup()
 	}
 
 	// Validate EPUB generation

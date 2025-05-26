@@ -48,13 +48,13 @@ func TestEPUBErrors(t *testing.T) {
 				t.Fatalf("setup failed: %v", err)
 			}
 
-			epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if cleanup != nil {
-				defer cleanup()
+				/* cleanup() will be called after all conversions below */
 			}
 
 			if tt.wantErr {

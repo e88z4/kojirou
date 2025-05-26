@@ -4,7 +4,7 @@ package epub
 import (
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -140,7 +140,7 @@ func (p *OPFProcessor) Serialize() ([]byte, error) {
 func findOPFFile(dir string) (string, error) {
 	// First, look for container.xml in META-INF
 	containerPath := filepath.Join(dir, "META-INF", "container.xml")
-	data, err := ioutil.ReadFile(containerPath)
+	data, err := os.ReadFile(containerPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read container.xml: %w", err)
 	}
@@ -170,7 +170,7 @@ func findOPFFile(dir string) (string, error) {
 // transformOPFFile processes an OPF file for Kobo compatibility
 func transformOPFFile(opfPath string) error {
 	// Read the OPF file
-	data, err := ioutil.ReadFile(opfPath)
+	data, err := os.ReadFile(opfPath)
 	if err != nil {
 		return fmt.Errorf("failed to read OPF file: %w", err)
 	}
@@ -191,7 +191,7 @@ func transformOPFFile(opfPath string) error {
 	}
 
 	// Write the modified OPF file
-	err = ioutil.WriteFile(opfPath, output, 0644)
+	err = os.WriteFile(opfPath, output, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write OPF file: %w", err)
 	}

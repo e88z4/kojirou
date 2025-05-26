@@ -3,7 +3,6 @@ package epub
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,27 +24,32 @@ func NewHTMLProcessor(content []byte) (*HTMLProcessor, error) {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	// Find head and body nodes
 	processor := &HTMLProcessor{doc: doc}
 
-	// Find the HTML element and its head/body children
-	var findHeadAndBody func(*html.Node)
-	findHeadAndBody = func(n *html.Node) {
-		if n.Type == html.ElementNode {
-			if n.Data == "head" {
-				processor.headNode = n
-			} else if n.Data == "body" {
-				processor.bodyNode = n
-			}
+	// Find the <html> element
+	var htmlNode *html.Node
+	var findHTML func(*html.Node)
+	findHTML = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "html" {
+			htmlNode = n
+			return
 		}
+		for c := n.FirstChild; c != nil && htmlNode == nil; c = c.NextSibling {
+			findHTML(c)
+		}
+	}
+	findHTML(doc)
 
-		// Continue search in children
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			findHeadAndBody(c)
+	if htmlNode != nil {
+		for c := htmlNode.FirstChild; c != nil; c = c.NextSibling {
+			if c.Type == html.ElementNode && c.Data == "head" {
+				processor.headNode = c
+			} else if c.Type == html.ElementNode && c.Data == "body" {
+				processor.bodyNode = c
+			}
 		}
 	}
 
-	findHeadAndBody(doc)
 	return processor, nil
 }
 
@@ -114,23 +118,28 @@ func (p *HTMLProcessor) AddKoboNamespace() {
 		return
 	}
 
-	// Add or replace Kobo namespace
+	// Add or replace Kobo and epub namespaces
 	koboNS := "http://www.kobo.com/ns/1.0"
-	nsExists := false
+	koboAttr := "xmlns:kobo"
+	epubAttr := "xmlns:epub"
+	koboExists := false
+	epubExists := false
 
 	for i, attr := range htmlNode.Attr {
-		if attr.Key == "xmlns:epub" {
+		if attr.Key == epubAttr {
 			htmlNode.Attr[i].Val = koboNS
-			nsExists = true
-			break
+			epubExists = true
+		}
+		if attr.Key == koboAttr {
+			htmlNode.Attr[i].Val = koboNS
+			koboExists = true
 		}
 	}
-
-	if !nsExists {
-		htmlNode.Attr = append(htmlNode.Attr, html.Attribute{
-			Key: "xmlns:epub",
-			Val: koboNS,
-		})
+	if !epubExists {
+		htmlNode.Attr = append(htmlNode.Attr, html.Attribute{Key: epubAttr, Val: koboNS})
+	}
+	if !koboExists {
+		htmlNode.Attr = append(htmlNode.Attr, html.Attribute{Key: koboAttr, Val: koboNS})
 	}
 }
 
@@ -195,6 +204,8 @@ func processTextNodes(doc *html.Node) {
 	traverse(doc)
 }
 
+var testSpanIDCounter int
+
 // processTextNodesForKobo is a test-local copy for test helpers
 func processTextNodesForKobo(n *html.Node) {
 	// Collect text nodes
@@ -209,26 +220,22 @@ func processTextNodesForKobo(n *html.Node) {
 	for _, textNode := range textNodes {
 		text := textNode.Data
 
-		// Create span element
+		testSpanIDCounter++
 		span := &html.Node{
 			Type: html.ElementNode,
 			Data: "span",
 			Attr: []html.Attribute{
 				{Key: "class", Val: "koboSpan"},
-				{Key: "id", Val: "kobo-span-test"}, // test id
+				{Key: "id", Val: fmt.Sprintf("kobo-span-%d", testSpanIDCounter)},
 			},
 		}
 
-		// Create new text node with the same content
 		newText := &html.Node{
 			Type: html.TextNode,
 			Data: text,
 		}
 
-		// Add text node to span
 		span.AppendChild(newText)
-
-		// Replace original text node with span
 		n.InsertBefore(span, textNode)
 		n.RemoveChild(textNode)
 	}
@@ -256,6 +263,30 @@ func processImageElements(doc *html.Node) bool {
 				n.Attr = append(n.Attr, html.Attribute{Key: "class", Val: "kobo-image"})
 				modified = true
 			}
+			// Add epub:type="kobo" if not present
+			hasEpubType := false
+			for _, attr := range n.Attr {
+				if attr.Key == "epub:type" && attr.Val == "kobo" {
+					hasEpubType = true
+					break
+				}
+			}
+			if !hasEpubType {
+				n.Attr = append(n.Attr, html.Attribute{Key: "epub:type", Val: "kobo"})
+				modified = true
+				}
+			// Add id if not present
+			hasID := false
+			for _, attr := range n.Attr {
+				if attr.Key == "id" {
+					hasID = true
+					break
+				}
+			}
+			if !hasID {
+				n.Attr = append(n.Attr, html.Attribute{Key: "id", Val: "kobo_img_test"})
+				modified = true
+			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			traverse(c)
@@ -267,7 +298,7 @@ func processImageElements(doc *html.Node) bool {
 
 // transformHTMLFile applies Kobo-specific transformations to an HTML file
 func transformHTMLFile(htmlPath string) error {
-	content, err := ioutil.ReadFile(htmlPath)
+	content, err := os.ReadFile(htmlPath)
 	if err != nil {
 		return fmt.Errorf("failed to read HTML file: %w", err)
 	}
@@ -278,6 +309,8 @@ func transformHTMLFile(htmlPath string) error {
 	}
 
 	doc := processor.GetDocument()
+	// Add Kobo namespace to match production logic
+	processor.AddKoboNamespace()
 	processTextNodes(doc)
 	processImageElements(doc)
 
@@ -286,7 +319,7 @@ func transformHTMLFile(htmlPath string) error {
 		return fmt.Errorf("failed to serialize HTML: %w", err)
 	}
 
-	err = ioutil.WriteFile(htmlPath, modified, 0644)
+	err = os.WriteFile(htmlPath, modified, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write modified HTML: %w", err)
 	}

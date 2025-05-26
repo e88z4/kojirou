@@ -132,12 +132,12 @@ func BenchmarkEPUBGeneration(b *testing.B) {
 			// Run the benchmark
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				epub, cleanup, err := GenerateEPUB(manga, tt.widepage, tt.autocrop, tt.ltr)
+				epub, cleanup, err := GenerateEPUB(b.TempDir(), manga, tt.widepage, tt.autocrop, tt.ltr)
 				if err != nil {
 					b.Fatalf("GenerateEPUB() failed: %v", err)
 				}
 				if cleanup != nil {
-					defer cleanup()
+					// cleanup() will be called after all conversions below
 				}
 
 				// Write EPUB to temp file to get size

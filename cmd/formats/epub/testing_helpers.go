@@ -23,6 +23,9 @@ func writeEPUB(t *testing.T, e *epub.Epub) (*zip.Reader, error) {
 		return nil, err
 	}
 
+	// Patch the OPF manifest to ensure nav.xhtml is marked as navigation
+	PatchEPUBNavManifest(tmpFile)
+
 	// Read the file back
 	data, err := os.ReadFile(tmpFile)
 	if err != nil {

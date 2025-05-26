@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"strings"
 	"testing"
 
@@ -53,7 +54,7 @@ func TestMangaStructureVariations(t *testing.T) {
 			},
 			wantErr: false,
 			verify: func(t *testing.T, epub *epub.Epub) {
-				verifyEPUBStructure(t, "", true)
+				verifyMangaEPUBStructure(t, epub, 1, 1, true)
 			},
 		},
 		{
@@ -124,7 +125,7 @@ func TestMangaStructureVariations(t *testing.T) {
 			},
 			wantErr: false,
 			verify: func(t *testing.T, epub *epub.Epub) {
-				verifyEPUBStructure(t, "", true)
+				verifyMangaEPUBStructure(t, epub, 1, 2, true)
 			},
 		},
 		{
@@ -183,7 +184,7 @@ func TestMangaStructureVariations(t *testing.T) {
 			},
 			wantErr: false,
 			verify: func(t *testing.T, epub *epub.Epub) {
-				verifyEPUBStructure(t, "", true)
+				verifyMangaEPUBStructure(t, epub, 1, 6, true)
 			},
 		},
 	}
@@ -191,13 +192,13 @@ func TestMangaStructureVariations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manga := tt.setupManga()
-			epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if cleanup != nil {
-				defer cleanup()
+				// defer cleanup()
 			}
 			if epub == nil && !tt.wantErr {
 				t.Fatal("GenerateEPUB() returned nil without error")
@@ -224,7 +225,7 @@ func verifyMangaEPUBStructure(t *testing.T, epub *epub.Epub, expectedVolumes, ex
 		"META-INF/container.xml",
 		"EPUB/package.opf",
 		"EPUB/nav.xhtml",
-		"EPUB/style.css",
+		"EPUB/css/style.css",
 	}
 
 	for _, required := range requiredFiles {
@@ -240,12 +241,15 @@ func verifyMangaEPUBStructure(t *testing.T, epub *epub.Epub, expectedVolumes, ex
 		}
 	}
 
-	// Count chapters and images
+	fmt.Println("Files in EPUB archive:")
+	for _, f := range zipReader.File {
+		fmt.Println(f.Name)
+	}
 	chapterCount := 0
 	imageCount := 0
 	coverCount := 0
 	for _, f := range zipReader.File {
-		if strings.HasPrefix(f.Name, "EPUB/chapter") && strings.HasSuffix(f.Name, ".xhtml") {
+		if strings.HasPrefix(f.Name, "EPUB/xhtml/chapter-") {
 			chapterCount++
 		}
 		if strings.HasPrefix(f.Name, "EPUB/images/") && strings.HasSuffix(f.Name, ".jpg") {
@@ -277,16 +281,18 @@ func verifyMangaEPUBStructure(t *testing.T, epub *epub.Epub, expectedVolumes, ex
 	}
 
 	if navFile != nil {
+		fmt.Printf("nav.xhtml size: %d bytes\n", navFile.UncompressedSize64)
 		rc, err := navFile.Open()
 		if err != nil {
 			t.Fatalf("failed to open nav.xhtml: %v", err)
 		}
 		defer rc.Close()
 
-		navContent := make([]byte, navFile.UncompressedSize64)
-		if _, err := rc.Read(navContent); err != nil {
+		navContent, err := io.ReadAll(rc)
+		if err != nil {
 			t.Fatalf("failed to read nav.xhtml: %v", err)
 		}
+		fmt.Printf("nav.xhtml raw content:\n%s\n", string(navContent))
 
 		navStr := string(navContent)
 		if expectedVolumes > 1 && !strings.Contains(navStr, "Volume") {

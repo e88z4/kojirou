@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -24,7 +25,7 @@ func TestCompleteKEPUBImplementation(t *testing.T) {
 	t.Skip("KEPUB conversion not implemented yet")
 
 	// Create a temporary directory for test files
-	tempDir, err := ioutil.TempDir("", "kepub-validation")
+	tempDir, err := os.MkdirTemp("", "kepub-validation")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -34,12 +35,12 @@ func TestCompleteKEPUBImplementation(t *testing.T) {
 	manga := createComprehensiveTestManga()
 
 	// Generate EPUB
-	epubObj, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+	epubObj, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
 	if cleanup != nil {
-		defer cleanup()
+		// defer cleanup()
 	}
 
 	// Convert to KEPUB
@@ -50,7 +51,7 @@ func TestCompleteKEPUBImplementation(t *testing.T) {
 
 	// Write output for inspection
 	kepubPath := filepath.Join(tempDir, "test-complete.kepub.epub")
-	err = ioutil.WriteFile(kepubPath, kepubData, 0644)
+	err = os.WriteFile(kepubPath, kepubData, 0644)
 	if err != nil {
 		t.Logf("Failed to write KEPUB output: %v", err)
 	}
@@ -273,7 +274,7 @@ func TestKEPUBCompleteness(t *testing.T) {
 							continue
 						}
 
-						contentBytes, err := ioutil.ReadAll(rc)
+						contentBytes, err := io.ReadAll(rc)
 						rc.Close()
 						if err != nil {
 							continue
@@ -319,7 +320,7 @@ func TestKEPUBCompleteness(t *testing.T) {
 							return false
 						}
 
-						contentBytes, err := ioutil.ReadAll(rc)
+						contentBytes, err := io.ReadAll(rc)
 						rc.Close()
 						if err != nil {
 							return false
@@ -418,7 +419,7 @@ func extractHTMLFromKEPUBFile(t *testing.T, data []byte) []string {
 				continue
 			}
 
-			contentBytes, err := ioutil.ReadAll(rc)
+			contentBytes, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
 				if t != nil {
@@ -530,7 +531,7 @@ func runKEPUBFeatureChecklist(t *testing.T, data []byte) {
 							continue
 						}
 
-						contentBytes, err := ioutil.ReadAll(rc)
+						contentBytes, err := io.ReadAll(rc)
 						rc.Close()
 						if err != nil {
 							continue

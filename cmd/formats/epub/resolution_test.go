@@ -88,7 +88,7 @@ func TestEPUBResolution(t *testing.T) {
 						hasNCX = true
 					case strings.Contains(name, ".css"):
 						hasCSS = true
-					case strings.Contains(name, "chapter-") || strings.Contains(name, "ch1-"):
+					case strings.Contains(name, "chapter-") || strings.Contains(name, "ch1-") || strings.Contains(name, "section"):
 						hasChapter = true
 					case strings.Contains(name, ".jpg") || strings.Contains(name, ".jpeg"):
 						hasImages = true
@@ -138,7 +138,7 @@ func TestEPUBResolution(t *testing.T) {
 			manga := tt.setupManga()
 			t.Logf("Testing manga: Title=%q, Volumes=%d", manga.Info.Title, len(manga.Volumes))
 
-			epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, true)
 
 			// Handle error cases first
 			if err != nil {
@@ -237,13 +237,13 @@ func TestEPUBResolutions(t *testing.T) {
 			}
 
 			// Generate EPUB
-			epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, true)
 			if (err != nil) != tt.expectedError {
 				t.Errorf("GenerateEPUB() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 			if cleanup != nil {
-				defer cleanup()
+				// defer cleanup()
 			}
 			if tt.expectedError || epub == nil {
 				return

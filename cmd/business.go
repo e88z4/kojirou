@@ -127,7 +127,7 @@ func HandleVolume(skeleton md.Manga, volume md.Volume, dir kindle.NormalizedDire
 	if needsEpub {
 		var epubErr error
 		var cleanup func()
-		sharedEpub, cleanup, epubErr = epubpkg.GenerateEPUB(
+		sharedEpub, cleanup, epubErr = epubpkg.GenerateEPUBProd(
 			mangaForVolume,
 			widepagePolicy,
 			autocropArg,

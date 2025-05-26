@@ -5,14 +5,11 @@ package epub
 import (
 	"archive/zip"
 	"bytes"
-	"image"
-	"image/color"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
-	md "github.com/leotaku/kojirou/mangadex"
 	"golang.org/x/net/html"
 )
 
@@ -225,35 +222,4 @@ func verifyKoboContentType(t *testing.T, data []byte) {
 	if !found {
 		t.Error("No valid mimetype file or package.opf found in KEPUB")
 	}
-}
-func createMultiVolumeTestManga() md.Manga {
-	manga := createTestManga()
-
-	// Add a second volume
-	vol2ID := md.NewIdentifier("2")
-	vol2 := md.Volume{
-		Info: md.VolumeInfo{
-			Identifier: vol2ID,
-		},
-		Chapters: map[md.Identifier]md.Chapter{},
-	}
-
-	// Add a chapter to the second volume
-	chap2ID := md.NewIdentifier("2-1")
-	chap2 := md.Chapter{
-		Info: md.ChapterInfo{
-			Identifier:       chap2ID,
-			Title:            "Chapter 2",
-			VolumeIdentifier: vol2ID,
-		},
-		Pages: map[int]image.Image{
-			0: createTestImage(1000, 1400, color.White),
-			1: createTestImage(1000, 1400, color.White),
-		},
-	}
-
-	vol2.Chapters[chap2ID] = chap2
-	manga.Volumes[vol2ID] = vol2
-
-	return manga
 }

@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,12 +69,12 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 			manga := tc.setupManga()
 
 			// Generate EPUB
-			epubObj, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+			epubObj, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 			if err != nil {
 				t.Fatalf("GenerateEPUB() failed: %v", err)
 			}
 			if cleanup != nil {
-				defer cleanup()
+				// cleanup() will be called after all conversions below
 			}
 
 			// Convert to KEPUB
@@ -96,7 +95,7 @@ func TestKEPUBWithExternalMangaData(t *testing.T) {
 	t.Skip("KEPUB conversion not implemented yet")
 
 	// Create a temporary directory for test files
-	tempDir, err := ioutil.TempDir("", "kepub-test")
+	tempDir, err := os.MkdirTemp("", "kepub-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -263,7 +262,7 @@ func TestKEPUBWithExternalMangaData(t *testing.T) {
 
 			// Write the output for inspection if needed
 			kepubPath := filepath.Join(tempDir, strings.TrimSuffix(sample.filename, ".epub")+".kepub")
-			err = ioutil.WriteFile(kepubPath, kepubData, 0644)
+			err = os.WriteFile(kepubPath, kepubData, 0644)
 			if err != nil {
 				t.Logf("Failed to write KEPUB output: %v", err)
 			} else {
@@ -366,7 +365,7 @@ func createTestImageFile(path string, width, height int) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, []byte("test image data"), 0644)
+	return os.WriteFile(path, []byte("test image data"), 0644)
 }
 
 func writeTestCSS(path string) error {
@@ -391,7 +390,7 @@ func writeTestCSS(path string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, []byte(css), 0644)
+	return os.WriteFile(path, []byte(css), 0644)
 }
 
 func verifyKEPUBOutput(t *testing.T, data []byte, testName, expectation string) {

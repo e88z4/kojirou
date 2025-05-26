@@ -87,13 +87,13 @@ func TestImageResolutionScaling(t *testing.T) {
 			}
 
 			// Generate EPUB
-			epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, true)
 			if (err != nil) != tt.expectedError {
 				t.Errorf("GenerateEPUB() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
 			if cleanup != nil {
-				defer cleanup()
+				// defer cleanup()
 			}
 			if tt.expectedError || epub == nil {
 				return
@@ -197,7 +197,7 @@ func TestInvalidImageDimensions(t *testing.T) {
 			}
 
 			// Generate EPUB and verify it fails
-			epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, true)
 			if err == nil {
 				t.Error("expected error for invalid dimensions, got nil")
 			}

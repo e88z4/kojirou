@@ -84,7 +84,7 @@ func HandleVolumeMultiFormat(
 		switch format {
 		case FormatEpub:
 			// Assign all 3 return values and handle cleanup
-			epubObj, cleanup, err := epub_format.GenerateEPUB(md.Manga{
+			epubObj, cleanup, err := epub_format.GenerateEPUBProd(md.Manga{
 				Info:    md.MangaInfo{Title: skeleton.Info.Title},
 				Volumes: map[md.Identifier]md.Volume{volume.Info.Identifier: volume},
 			}, widepagePolicy, autocropArg, leftToRightArg)
@@ -99,7 +99,7 @@ func HandleVolumeMultiFormat(
 			}
 		case FormatKepub:
 			// Assign all 3 return values and handle cleanup
-			epubObj, cleanup, err := epub_format.GenerateEPUB(md.Manga{
+			epubObj, cleanup, err := epub_format.GenerateEPUBProd(md.Manga{
 				Info:    md.MangaInfo{Title: skeleton.Info.Title},
 				Volumes: map[md.Identifier]md.Volume{volume.Info.Identifier: volume},
 			}, widepagePolicy, autocropArg, leftToRightArg)

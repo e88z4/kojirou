@@ -8,8 +8,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/leotaku/kojirou/cmd/formats/kepubconv"
+
 	"github.com/bmaupin/go-epub"
-	kepubconv "github.com/leotaku/kojirou/cmd/formats/kepubconv"
 	"github.com/leotaku/mobi"
 )
 

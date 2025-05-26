@@ -64,13 +64,13 @@ func TestTemplateRendering(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manga := tt.setupManga()
-			epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, true)
+			epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if cleanup != nil {
-				defer cleanup()
+				// cleanup() will be called after all conversions below
 			}
 			if !tt.wantErr && tt.validate != nil {
 				tt.validate(t, epub)

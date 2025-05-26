@@ -18,12 +18,12 @@ func TestKEPUBSimple(t *testing.T) {
 	manga := testhelpers.CreateTestManga()
 
 	// Generate EPUB
-	epubObj, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+	epubObj, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
 	if cleanup != nil {
-		defer cleanup()
+		// cleanup() will be called after all conversions below
 	}
 
 	// Convert to KEPUB

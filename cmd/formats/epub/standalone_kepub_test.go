@@ -1,7 +1,6 @@
 package epub_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,7 +23,7 @@ func TestBasicKEPUBConversion(t *testing.T) {
 	}
 
 	// Add an image section
-	tempDir, err := ioutil.TempDir("", "kepub-test")
+	tempDir, err := os.MkdirTemp("", "kepub-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -32,7 +31,7 @@ func TestBasicKEPUBConversion(t *testing.T) {
 
 	// Create a simple 1x1 pixel image
 	imgPath := filepath.Join(tempDir, "test.jpg")
-	if err := ioutil.WriteFile(imgPath, []byte{
+	if err := os.WriteFile(imgPath, []byte{
 		0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
 		0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
 		0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -76,7 +75,7 @@ func TestBasicKEPUBConversion(t *testing.T) {
 
 	// Write KEPUB to file for inspection (optional)
 	kepubPath := filepath.Join(tempDir, "test.kepub.epub")
-	if err := ioutil.WriteFile(kepubPath, kepubData, 0644); err != nil {
+	if err := os.WriteFile(kepubPath, kepubData, 0644); err != nil {
 		t.Logf("Failed to write KEPUB to file: %v", err)
 	} else {
 		t.Logf("Created KEPUB at: %s", kepubPath)

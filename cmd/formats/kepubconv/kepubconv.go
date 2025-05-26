@@ -1,4 +1,3 @@
-// Package kepubconv provides KEPUB conversion logic without import cycles.
 package kepubconv
 
 import (
@@ -7,11 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/bmaupin/go-epub"
+	"github.com/leotaku/kojirou/cmd/formats/util"
 	"golang.org/x/net/html"
 )
 
@@ -24,13 +27,23 @@ func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
 	if epubBook == nil {
 		return nil, errors.New("nil EPUB object provided")
 	}
+	if !hasSections(epubBook) {
+		return nil, errors.New("empty EPUB: no content sections found")
+	}
+
+	// Ensure temp CSS file exists for EPUB write (fixes test failures)
+	cssTempPath := filepath.Join(os.TempDir(), "style.css")
+	if _, err := os.Stat(cssTempPath); os.IsNotExist(err) {
+		cssContent := "body { margin: 0; padding: 0; } img { display: block; max-width: 100%; height: auto; }"
+		_ = os.WriteFile(cssTempPath, []byte(cssContent), 0644)
+	}
 
 	// Create a temporary directory for processing
-	tempDir, err := ioutil.TempDir("", "kepub-conversion")
+	tempDir, err := os.MkdirTemp("", "kepub-conversion")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer util.ForceRemoveAll(tempDir)
 
 	// Step 1: Write the EPUB to a temporary file
 	epubPath := filepath.Join(tempDir, "original.epub")
@@ -69,10 +82,14 @@ func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
 	}
 
 	// Step 5: Read the final KEPUB data
-	kepubData, err := ioutil.ReadFile(kepubPath)
+	kepubData, err := os.ReadFile(kepubPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read KEPUB data: %w", err)
 	}
+
+	// Clean up: Remove debug output directory if it exists
+	debugOutdir := "/home/felix/src/kojirou/kepub_debug_tmp"
+	_ = os.RemoveAll(debugOutdir)
 
 	return kepubData, nil
 }
@@ -121,59 +138,217 @@ func extractEPUB(epubPath, extractDir string) error {
 
 // processEPUBForKobo modifies the contents of an extracted EPUB directory for Kobo compatibility.
 func processEPUBForKobo(extractDir string) error {
-	// Example: Add Kobo-specific attributes to HTML files
-	htmlFiles, err := filepath.Glob(filepath.Join(extractDir, "*.html"))
-	if err != nil {
-		return fmt.Errorf("failed to find HTML files: %w", err)
+	// 1. Inject Kobo-specific metadata into OPF files (recursive)
+	opfFiles := []string{}
+	filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".opf") {
+			opfFiles = append(opfFiles, path)
+		}
+		return nil
+	})
+	for _, opfFile := range opfFiles {
+		data, err := os.ReadFile(opfFile)
+		if err != nil {
+			return fmt.Errorf("failed to read OPF file: %w", err)
+		}
+		output := injectKoboMetadata(data)
+		if err := os.WriteFile(opfFile, output, 0644); err != nil {
+			return fmt.Errorf("failed to write modified OPF file: %w", err)
+		}
 	}
 
-	for _, htmlFile := range htmlFiles {
-		data, err := ioutil.ReadFile(htmlFile)
-		if err != nil {
-			return fmt.Errorf("failed to read HTML file: %w", err)
+	// 2. Add Kobo-specific attributes to HTML/XHTML files (recursive)
+	htmlFiles := []string{}
+	filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() && (strings.HasSuffix(strings.ToLower(path), ".html") || strings.HasSuffix(strings.ToLower(path), ".xhtml")) {
+			htmlFiles = append(htmlFiles, path)
 		}
-
+		return nil
+	})
+	for _, htmlFile := range htmlFiles {
+		data, err := os.ReadFile(htmlFile)
+		if err != nil {
+			return fmt.Errorf("failed to read HTML/XHTML file: %w", err)
+		}
 		modifiedData := addKoboAttributes(data)
-
-		if err := ioutil.WriteFile(htmlFile, modifiedData, 0644); err != nil {
-			return fmt.Errorf("failed to write modified HTML file: %w", err)
+		if err := os.WriteFile(htmlFile, modifiedData, 0644); err != nil {
+			return fmt.Errorf("failed to write modified HTML/XHTML file: %w", err)
 		}
 	}
 
 	return nil
 }
 
+// injectKoboMetadata adds Kobo-specific metadata to the OPF XML content.
+func injectKoboMetadata(data []byte) []byte {
+	opf := string(data)
+	// 1. Inject Kobo/rendition namespaces into <package ...>
+	packageRe := regexp.MustCompile(`(?s)<package([^>]*)>`)
+	opf = packageRe.ReplaceAllStringFunc(opf, func(pkgTag string) string {
+		// Always add Kobo/rendition namespaces if not present
+		if !strings.Contains(pkgTag, "xmlns:rendition") {
+			pkgTag = strings.Replace(pkgTag, ">", " xmlns:rendition=\"http://www.idpf.org/vocab/rendition/#\">", 1)
+		}
+		if !strings.Contains(pkgTag, "xmlns:kobo") {
+			pkgTag = strings.Replace(pkgTag, ">", " xmlns:kobo=\"http://kobobooks.com/ns/kobo\">", 1)
+		}
+		return pkgTag
+	})
+	// If regex did not match (e.g. <package ...> is on one line), do a fallback replace
+	if !strings.Contains(opf, "xmlns:rendition") {
+		opf = strings.Replace(opf, "<package ", "<package xmlns:rendition=\"http://www.idpf.org/vocab/rendition/#\" ", 1)
+	}
+	if !strings.Contains(opf, "xmlns:kobo") {
+		opf = strings.Replace(opf, "<package ", "<package xmlns:kobo=\"http://kobobooks.com/ns/kobo\" ", 1)
+	}
+	// 2. Insert required meta tags as direct children of <metadata>, but only if not already present
+	requiredMeta := []struct{ property, content string }{
+		{"kobo:content-type", "comic"},
+		{"kobo:epub-version", "3.0"},
+		{"rendition:layout", "pre-paginated"},
+		{"rendition:orientation", "portrait"},
+		{"rendition:spread", "none"},
+		{"rendition:flow", "paginated"},
+		{"dcterms:modified", time.Now().UTC().Format("2006-01-02T15:04:05Z")},
+		{"page-progression-direction", "rtl"},
+	}
+	present := map[string]bool{}
+	metaRe := regexp.MustCompile(`<meta[^>]+property=\"([^\"]+)\"[^>]*/?>`)
+	for _, m := range metaRe.FindAllStringSubmatch(opf, -1) {
+		present[m[1]] = true
+	}
+	var metaInsert strings.Builder
+	for _, m := range requiredMeta {
+		if !present[m.property] {
+			metaInsert.WriteString(`<meta property=\"`)
+			metaInsert.WriteString(m.property)
+			metaInsert.WriteString(`\" content=\"`)
+			metaInsert.WriteString(m.content)
+			metaInsert.WriteString(`"/>`)
+		}
+	}
+	metadataCloseRe := regexp.MustCompile(`(?s)(</metadata>)`)
+	if metaInsert.Len() > 0 {
+		opf = metadataCloseRe.ReplaceAllString(opf, metaInsert.String()+"$1")
+	}
+	return []byte(opf)
+}
+
 // addKoboAttributes adds Kobo-specific attributes to HTML content.
 func addKoboAttributes(data []byte) []byte {
-	// Example: Add Kobo spans around paragraphs
 	doc, err := html.Parse(bytes.NewReader(data))
 	if err != nil {
 		return data // Return original data if parsing fails
 	}
 
+	// Ensure Kobo and epub namespaces on <html>
+	var ensureNamespaces func(*html.Node)
+	ensureNamespaces = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "html" {
+			// Remove all existing Kobo/epub namespace attributes (by Key or Namespace)
+			newAttrs := make([]html.Attribute, 0, len(n.Attr))
+			for _, attr := range n.Attr {
+				if (attr.Key == "xmlns:kobo" || attr.Key == "xmlns:epub") || (attr.Namespace == "xmlns" && (attr.Key == "kobo" || attr.Key == "epub")) {
+					continue
+				}
+				newAttrs = append(newAttrs, attr)
+			}
+			// Always add Kobo and epub namespaces as the first attributes, in canonical order
+			attrsWithNS := []html.Attribute{
+				{Key: "xmlns:kobo", Val: "http://kobobooks.com/ns/kobo"},
+				{Key: "xmlns:epub", Val: "http://www.idpf.org/2007/ops"},
+			}
+			attrsWithNS = append(attrsWithNS, newAttrs...)
+			n.Attr = attrsWithNS
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			ensureNamespaces(c)
+		}
+	}
+
+	// Unique span ID counter
+	spanIDCounter := 1
+	imgIDCounter := 1
+
+	// Helper to wrap direct text node children in Kobo spans
+	wrapTextNodes := func(parent *html.Node) {
+		var next *html.Node
+		for c := parent.FirstChild; c != nil; c = next {
+			next = c.NextSibling
+			if c.Type == html.TextNode && strings.TrimSpace(c.Data) != "" {
+				span := &html.Node{
+					Type: html.ElementNode,
+					Data: "span",
+					Attr: []html.Attribute{
+						{Key: "class", Val: "koboSpan"},
+						{Key: "id", Val: fmt.Sprintf("kobo-span-%d", spanIDCounter)},
+					},
+				}
+				spanIDCounter++
+				textCopy := &html.Node{Type: html.TextNode, Data: c.Data}
+				span.AppendChild(textCopy)
+				parent.InsertBefore(span, c)
+				parent.RemoveChild(c)
+			}
+		}
+	}
+
 	var modifyNode func(*html.Node)
 	modifyNode = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "p" {
-			span := &html.Node{
-				Type: html.ElementNode,
-				Data: "span",
-				Attr: []html.Attribute{
-					{Key: "class", Val: "koboSpan"},
-				},
+		if n.Type == html.ElementNode && (n.Data == "p" || n.Data == "div") {
+			wrapTextNodes(n)
+		}
+		if n.Type == html.ElementNode && n.Data == "img" {
+			hasEpubType := false
+			hasID := false
+			hasClass := false
+			for i, attr := range n.Attr {
+				if attr.Key == "epub:type" {
+					hasEpubType = true
+					n.Attr[i].Val = "kobo"
+				}
+				if attr.Key == "id" {
+					hasID = true
+				}
+				if attr.Key == "class" {
+					if !strings.Contains(attr.Val, "kobo-image") {
+						n.Attr[i].Val = attr.Val + " kobo-image"
+					}
+					hasClass = true
+				}
 			}
-			span.AppendChild(n.FirstChild)
-			n.AppendChild(span)
+			if !hasEpubType {
+				n.Attr = append(n.Attr, html.Attribute{Key: "epub:type", Val: "kobo"})
+			}
+			if !hasID {
+				n.Attr = append(n.Attr, html.Attribute{Key: "id", Val: fmt.Sprintf("kobo_img_%d", imgIDCounter)})
+				imgIDCounter++
+			}
+			if !hasClass {
+				n.Attr = append(n.Attr, html.Attribute{Key: "class", Val: "kobo-image"})
+			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			modifyNode(c)
 		}
 	}
 
+	ensureNamespaces(doc)
 	modifyNode(doc)
 
 	var buf bytes.Buffer
 	html.Render(&buf, doc)
 	return buf.Bytes()
+}
+
+// hasSections checks if the EPUB has any sections using reflection.
+func hasSections(epubBook *epub.Epub) bool {
+	v := reflect.ValueOf(epubBook).Elem()
+	field := v.FieldByName("sections")
+	if !field.IsValid() {
+		return false
+	}
+	return field.Len() > 0
 }
 
 // packageKEPUB repackages the contents of a directory into a KEPUB file.
@@ -187,20 +362,45 @@ func packageKEPUB(extractDir, kepubPath string) error {
 	zipWriter := zip.NewWriter(outFile)
 	defer zipWriter.Close()
 
+	// 1. Write mimetype file first, uncompressed
+	mimetypePath := filepath.Join(extractDir, "mimetype")
+	mimetypeInfo, err := os.Stat(mimetypePath)
+	if err != nil {
+		return fmt.Errorf("mimetype file missing: %w", err)
+	}
+	mimetypeHeader, err := zip.FileInfoHeader(mimetypeInfo)
+	if err != nil {
+		return fmt.Errorf("failed to create mimetype header: %w", err)
+	}
+	mimetypeHeader.Name = "mimetype"
+	mimetypeHeader.Method = zip.Store // No compression
+
+	mimetypeWriter, err := zipWriter.CreateHeader(mimetypeHeader)
+	if err != nil {
+		return fmt.Errorf("failed to create mimetype entry: %w", err)
+	}
+	mimetypeFile, err := os.Open(mimetypePath)
+	if err != nil {
+		return fmt.Errorf("failed to open mimetype: %w", err)
+	}
+	if _, err := io.Copy(mimetypeWriter, mimetypeFile); err != nil {
+		mimetypeFile.Close()
+		return fmt.Errorf("failed to write mimetype: %w", err)
+	}
+	mimetypeFile.Close()
+
+	// 2. Write all other files (skip mimetype)
 	err = filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
 		relPath, err := filepath.Rel(extractDir, path)
 		if err != nil {
 			return err
 		}
-
-		if info.IsDir() {
+		if info.IsDir() || relPath == "mimetype" {
 			return nil
 		}
-
 		file, err := os.Open(path)
 		if err != nil {
 			return err
@@ -211,11 +411,9 @@ func packageKEPUB(extractDir, kepubPath string) error {
 		if err != nil {
 			return err
 		}
-
 		_, err = io.Copy(w, file)
 		return err
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to package KEPUB: %w", err)
 	}

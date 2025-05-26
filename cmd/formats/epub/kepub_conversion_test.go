@@ -5,14 +5,74 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
+	"image"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/bmaupin/go-epub"
 	kepubconv "github.com/leotaku/kojirou/cmd/formats/kepubconv"
 	"github.com/leotaku/kojirou/cmd/formats/kindle"
+	testhelpers "github.com/leotaku/kojirou/cmd/formats/testhelpers"
+	"github.com/leotaku/kojirou/mangadex"
 )
+
+// createTestManga creates a test manga for use in testing
+func createTestManga() mangadex.Manga {
+	manga := mangadex.Manga{
+		Info: mangadex.MangaInfo{
+			Title:   "Test Manga",
+			ID:      "test-manga-id",
+			Authors: []string{"Test Author"},
+		},
+		Volumes: map[mangadex.Identifier]mangadex.Volume{},
+	}
+	volID := mangadex.NewIdentifier("1")
+	vol := mangadex.Volume{
+		Info:     mangadex.VolumeInfo{Identifier: volID},
+		Chapters: map[mangadex.Identifier]mangadex.Chapter{},
+	}
+	chapID := mangadex.NewIdentifier("1-1")
+	chap := mangadex.Chapter{
+		Info: mangadex.ChapterInfo{
+			Identifier:       chapID,
+			Title:            "Chapter 1",
+			VolumeIdentifier: volID,
+		},
+		Pages: map[int]image.Image{
+			0: image.NewRGBA(image.Rect(0, 0, 1000, 1400)),
+		},
+	}
+	vol.Chapters[chapID] = chap
+	manga.Volumes[volID] = vol
+	return manga
+}
+
+// createMultiVolumeTestManga creates a manga with multiple volumes for testing
+func createMultiVolumeTestManga() mangadex.Manga {
+	manga := createTestManga()
+	vol2ID := mangadex.NewIdentifier("2")
+	vol2 := mangadex.Volume{
+		Info:     mangadex.VolumeInfo{Identifier: vol2ID},
+		Chapters: map[mangadex.Identifier]mangadex.Chapter{},
+	}
+	chap2ID := mangadex.NewIdentifier("2-1")
+	chap2 := mangadex.Chapter{
+		Info: mangadex.ChapterInfo{
+			Identifier:       chap2ID,
+			Title:            "Chapter 2",
+			VolumeIdentifier: vol2ID,
+		},
+		Pages: map[int]image.Image{
+			0: image.NewRGBA(image.Rect(0, 0, 1000, 1400)),
+			1: image.NewRGBA(image.Rect(0, 0, 1000, 1400)),
+		},
+	}
+	vol2.Chapters[chap2ID] = chap2
+	manga.Volumes[vol2ID] = vol2
+	return manga
+}
 
 // TestEPUBToKEPUBConversion tests the full conversion process from EPUB to KEPUB format
 func TestEPUBToKEPUBConversion(t *testing.T) {
@@ -25,13 +85,13 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 		{
 			name: "standard epub to kepub",
 			setup: func() (*epub.Epub, error) {
-				manga := createTestManga()
-				epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+				manga := testhelpers.CreateTestManga()
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if err != nil {
 					return nil, err
 				}
 				if cleanup != nil {
-					defer cleanup()
+					// cleanup() will be called after KEPUB conversion below
 				}
 				return epub, nil
 			},
@@ -46,12 +106,12 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 			name: "complex manga with multiple volumes",
 			setup: func() (*epub.Epub, error) {
 				manga := createMultiVolumeTestManga()
-				epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if err != nil {
 					return nil, err
 				}
 				if cleanup != nil {
-					defer cleanup()
+					// cleanup() will be called after KEPUB conversion below
 				}
 				return epub, nil
 			},
@@ -74,6 +134,23 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 				_, err := e.AddSection(htmlContent, "Test Chapter", "ch1", "")
 				if err != nil {
 					return nil, fmt.Errorf("failed to add section: %w", err)
+				}
+
+				// Add a minimal CSS file
+				cssContent := "body { margin: 0; padding: 0; } img { display: block; max-width: 100%; height: auto; }"
+				cssFile, err := os.CreateTemp("", "test-style-*.css")
+				if err != nil {
+					return nil, fmt.Errorf("failed to create temp CSS file: %w", err)
+				}
+				cssPath := cssFile.Name()
+				_, err = cssFile.Write([]byte(cssContent))
+				cssFile.Close()
+				if err != nil {
+					return nil, fmt.Errorf("failed to write CSS: %w", err)
+				}
+				_, err = e.AddCSS(cssPath, "style.css")
+				if err != nil {
+					return nil, fmt.Errorf("failed to add CSS: %w", err)
 				}
 
 				return e, nil
@@ -134,63 +211,42 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 func TestKEPUBEnhancedFeatures(t *testing.T) {
 	tests := []struct {
 		name         string
-		setup        func() (*epub.Epub, error)
+		setup        func() (*epub.Epub, func(), error)
 		checkFeature func(*testing.T, []byte)
 		wantErr      bool
 	}{
 		{
 			name: "kobo spans for pagination",
-			setup: func() (*epub.Epub, error) {
-				manga := createTestManga()
-				epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
-				if err != nil {
-					return nil, err
-				}
-				if cleanup != nil {
-					defer cleanup()
-				}
-				return epub, nil
+			setup: func() (*epub.Epub, func(), error) {
+				manga := testhelpers.CreateTestManga()
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				return epub, cleanup, err
 			},
 			checkFeature: func(t *testing.T, data []byte) {
-				// Check for Kobo-specific text spanning in HTML files
 				validateKoboTextSpans(t, data)
 			},
 			wantErr: false,
 		},
 		{
 			name: "kobo fixed layout metadata",
-			setup: func() (*epub.Epub, error) {
-				manga := createTestManga()
-				epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
-				if err != nil {
-					return nil, err
-				}
-				if cleanup != nil {
-					defer cleanup()
-				}
-				return epub, nil
+			setup: func() (*epub.Epub, func(), error) {
+				manga := testhelpers.CreateTestManga()
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				return epub, cleanup, err
 			},
 			checkFeature: func(t *testing.T, data []byte) {
-				// Check for Kobo-specific fixed layout metadata
 				validateKoboFixedLayout(t, data)
 			},
 			wantErr: false,
 		},
 		{
 			name: "kobo image handling",
-			setup: func() (*epub.Epub, error) {
-				manga := createTestManga()
-				epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
-				if err != nil {
-					return nil, err
-				}
-				if cleanup != nil {
-					defer cleanup()
-				}
-				return epub, nil
+			setup: func() (*epub.Epub, func(), error) {
+				manga := testhelpers.CreateTestManga()
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				return epub, cleanup, err
 			},
 			checkFeature: func(t *testing.T, data []byte) {
-				// Check for Kobo-specific image handling
 				validateKoboImageHandling(t, data)
 			},
 			wantErr: false,
@@ -199,25 +255,20 @@ func TestKEPUBEnhancedFeatures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Generate EPUB
-			epub, err := tt.setup()
+			epub, cleanup, err := tt.setup()
 			if err != nil {
 				t.Fatalf("Setup failed: %v", err)
 			}
+			defer cleanup()
 
-			// Convert to KEPUB
 			kepubData, err := kepubconv.ConvertToKEPUB(epub)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConvertToKEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-
-			// Skip validation if we expected an error
 			if tt.wantErr {
 				return
 			}
-
-			// Check for specific Kobo enhancements
 			if tt.checkFeature != nil {
 				tt.checkFeature(t, kepubData)
 			}
@@ -227,25 +278,18 @@ func TestKEPUBEnhancedFeatures(t *testing.T) {
 
 // TestKEPUBCompatibility tests compatibility with Kobo devices through file structure validation
 func TestKEPUBCompatibility(t *testing.T) {
-	// Kobo devices have specific expectations for KEPUB files
 	tests := []struct {
 		name     string
-		setup    func() (*epub.Epub, error)
+		setup    func() (*epub.Epub, func(), error)
 		validate func(*testing.T, []byte)
 		wantErr  bool
 	}{
 		{
 			name: "standard compatibility",
-			setup: func() (*epub.Epub, error) {
-				manga := createTestManga()
-				epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
-				if err != nil {
-					return nil, err
-				}
-				if cleanup != nil {
-					defer cleanup()
-				}
-				return epub, nil
+			setup: func() (*epub.Epub, func(), error) {
+				manga := testhelpers.CreateTestManga()
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				return epub, cleanup, err
 			},
 			validate: func(t *testing.T, data []byte) {
 				validateKoboCompatibility(t, data)
@@ -254,17 +298,11 @@ func TestKEPUBCompatibility(t *testing.T) {
 		},
 		{
 			name: "special title compatibility",
-			setup: func() (*epub.Epub, error) {
-				manga := createTestManga()
+			setup: func() (*epub.Epub, func(), error) {
+				manga := testhelpers.CreateTestManga()
 				manga.Info.Title = "Special: Characters & Test"
-				epub, cleanup, err := GenerateEPUB(manga, kindle.WidepagePolicyPreserve, false, false)
-				if err != nil {
-					return nil, err
-				}
-				if cleanup != nil {
-					defer cleanup()
-				}
-				return epub, nil
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				return epub, cleanup, err
 			},
 			validate: func(t *testing.T, data []byte) {
 				validateKoboCompatibility(t, data)
@@ -276,25 +314,20 @@ func TestKEPUBCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Generate EPUB
-			epub, err := tt.setup()
+			epub, cleanup, err := tt.setup()
 			if err != nil {
 				t.Fatalf("Setup failed: %v", err)
 			}
+			defer cleanup()
 
-			// Convert to KEPUB
 			kepubData, err := kepubconv.ConvertToKEPUB(epub)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConvertToKEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-
-			// Skip validation if we expected an error
 			if tt.wantErr {
 				return
 			}
-
-			// Validate compatibility
 			if tt.validate != nil {
 				tt.validate(t, kepubData)
 			}
@@ -414,9 +447,13 @@ func validateKoboHTMLTransformation(t *testing.T, data []byte) {
 				continue
 			}
 
-			// Check for Kobo-specific text spans
+			// Check for Kobo-specific text spans and attributes
 			if bytes.Contains(content, []byte("kobo:")) ||
-				bytes.Contains(content, []byte("<span class=\"kobo")) {
+				bytes.Contains(content, []byte("<span class=\"kobo")) ||
+				bytes.Contains(content, []byte("koboSpan")) ||
+				bytes.Contains(content, []byte("epub:type=\"kobo\"")) ||
+				bytes.Contains(content, []byte("class=\"kobo-image\"")) ||
+				bytes.Contains(content, []byte("xmlns:kobo")) {
 				foundTransformedHTML = true
 				break
 			}
