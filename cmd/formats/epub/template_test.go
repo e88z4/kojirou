@@ -69,9 +69,11 @@ func TestTemplateRendering(t *testing.T) {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if cleanup != nil {
-				// cleanup() will be called after all conversions below
-			}
+			defer func() {
+				if cleanup != nil {
+					cleanup()
+				}
+			}()
 			if !tt.wantErr && tt.validate != nil {
 				tt.validate(t, epub)
 			}

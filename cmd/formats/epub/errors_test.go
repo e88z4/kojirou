@@ -53,8 +53,7 @@ func TestEPUBErrors(t *testing.T) {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if cleanup != nil {
-				/* cleanup() will be called after all conversions below */
+			if cleanup != nil { //nolint:staticcheck // cleanup() will be called after all conversions below
 			}
 
 			if tt.wantErr {

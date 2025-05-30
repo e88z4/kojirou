@@ -197,9 +197,11 @@ func TestMangaStructureVariations(t *testing.T) {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if cleanup != nil {
-				// defer cleanup()
-			}
+			defer func() {
+				if cleanup != nil {
+					cleanup()
+				}
+			}()
 			if epub == nil && !tt.wantErr {
 				t.Fatal("GenerateEPUB() returned nil without error")
 			}

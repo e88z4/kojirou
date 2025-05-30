@@ -2,7 +2,6 @@ package epub
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sync"
 	"testing"
@@ -24,9 +23,11 @@ func TestMultiFormatGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
-	if cleanup != nil {
-		// defer cleanup()
-	}
+	defer func() {
+		if cleanup != nil {
+			cleanup()
+		}
+	}()
 
 	// Validate EPUB generation
 	if epubObj == nil {
@@ -82,7 +83,7 @@ func TestMultiFormatGeneration(t *testing.T) {
 		defer wg.Done()
 
 		// Create a temp file
-		tempFile, err := ioutil.TempFile("", "epub-*.epub")
+		tempFile, err := os.CreateTemp("", "epub-*.epub")
 		if err != nil {
 			errors <- err
 			return

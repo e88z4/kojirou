@@ -90,8 +90,7 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-				if cleanup != nil {
-					// cleanup() will be called after KEPUB conversion below
+				if cleanup != nil { //nolint:staticcheck // cleanup() will be called after KEPUB conversion below
 				}
 				return epub, nil
 			},
@@ -110,8 +109,7 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-				if cleanup != nil {
-					// cleanup() will be called after KEPUB conversion below
+				if cleanup != nil { //nolint:staticcheck // cleanup() will be called after KEPUB conversion below
 				}
 				return epub, nil
 			},

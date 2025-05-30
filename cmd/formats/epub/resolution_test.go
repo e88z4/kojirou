@@ -242,9 +242,11 @@ func TestEPUBResolutions(t *testing.T) {
 				t.Errorf("GenerateEPUB() error = %v, expectedError %v", err, tt.expectedError)
 				return
 			}
-			if cleanup != nil {
-				// defer cleanup()
-			}
+			defer func() {
+				if cleanup != nil {
+					cleanup()
+				}
+			}()
 			if tt.expectedError || epub == nil {
 				return
 			}

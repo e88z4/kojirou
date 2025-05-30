@@ -23,6 +23,7 @@ const KEPUBExtension = ".kepub.epub"
 
 // ConvertToKEPUB transforms a standard EPUB object into a Kobo-compatible KEPUB.
 func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
+	var retErr error
 	// Input validation
 	if epubBook == nil {
 		return nil, errors.New("nil EPUB object provided")
@@ -31,19 +32,32 @@ func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
 		return nil, errors.New("empty EPUB: no content sections found")
 	}
 
-	// Ensure temp CSS file exists for EPUB write (fixes test failures)
-	cssTempPath := filepath.Join(os.TempDir(), "style.css")
-	if _, err := os.Stat(cssTempPath); os.IsNotExist(err) {
-		cssContent := "body { margin: 0; padding: 0; } img { display: block; max-width: 100%; height: auto; }"
-		_ = os.WriteFile(cssTempPath, []byte(cssContent), 0644)
-	}
-
 	// Create a temporary directory for processing
 	tempDir, err := os.MkdirTemp("", "kepub-conversion")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer util.ForceRemoveAll(tempDir)
+	defer func() {
+		if err := util.ForceRemoveAll(tempDir); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+
+	// Create necessary CSS files for EPUB write operation
+	// The go-epub library may look in several places for CSS files
+	cssContent := "body { margin: 0; padding: 0; } img { display: block; max-width: 100%; height: auto; }"
+	
+	// Create a style.css file in multiple possible locations
+	for _, dir := range []string{"css", "001", ""} {
+		styleDir := filepath.Join(tempDir, dir)
+		if err := os.MkdirAll(styleDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create style directory %s: %w", styleDir, err)
+		}
+		cssPath := filepath.Join(styleDir, "style.css")
+		if err := os.WriteFile(cssPath, []byte(cssContent), 0644); err != nil {
+			return nil, fmt.Errorf("failed to write CSS file %s: %w", cssPath, err)
+		}
+	}
 
 	// Step 1: Write the EPUB to a temporary file
 	epubPath := filepath.Join(tempDir, "original.epub")
@@ -91,7 +105,7 @@ func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
 	debugOutdir := "/home/felix/src/kojirou/kepub_debug_tmp"
 	_ = os.RemoveAll(debugOutdir)
 
-	return kepubData, nil
+	return kepubData, retErr
 }
 
 // extractEPUB extracts the contents of an EPUB file to a specified directory.
@@ -140,12 +154,14 @@ func extractEPUB(epubPath, extractDir string) error {
 func processEPUBForKobo(extractDir string) error {
 	// 1. Inject Kobo-specific metadata into OPF files (recursive)
 	opfFiles := []string{}
-	filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".opf") {
 			opfFiles = append(opfFiles, path)
 		}
 		return nil
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to walk for OPF files: %w", err)
+	}
 	for _, opfFile := range opfFiles {
 		data, err := os.ReadFile(opfFile)
 		if err != nil {
@@ -159,12 +175,14 @@ func processEPUBForKobo(extractDir string) error {
 
 	// 2. Add Kobo-specific attributes to HTML/XHTML files (recursive)
 	htmlFiles := []string{}
-	filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() && (strings.HasSuffix(strings.ToLower(path), ".html") || strings.HasSuffix(strings.ToLower(path), ".xhtml")) {
 			htmlFiles = append(htmlFiles, path)
 		}
 		return nil
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to walk for HTML/XHTML files: %w", err)
+	}
 	for _, htmlFile := range htmlFiles {
 		data, err := os.ReadFile(htmlFile)
 		if err != nil {
@@ -337,7 +355,9 @@ func addKoboAttributes(data []byte) []byte {
 	modifyNode(doc)
 
 	var buf bytes.Buffer
-	html.Render(&buf, doc)
+	if err := html.Render(&buf, doc); err != nil {
+		return data // Return original data if rendering fails
+	}
 	return buf.Bytes()
 }
 

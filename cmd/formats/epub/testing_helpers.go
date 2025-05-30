@@ -3,9 +3,6 @@ package epub
 import (
 	"archive/zip"
 	"bytes"
-	"image"
-	"image/color"
-	"image/draw"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,7 +21,9 @@ func writeEPUB(t *testing.T, e *epub.Epub) (*zip.Reader, error) {
 	}
 
 	// Patch the OPF manifest to ensure nav.xhtml is marked as navigation
-	PatchEPUBNavManifest(tmpFile)
+	if err := PatchEPUBNavManifest(tmpFile); err != nil {
+		return nil, err
+	}
 
 	// Read the file back
 	data, err := os.ReadFile(tmpFile)
@@ -34,11 +33,4 @@ func writeEPUB(t *testing.T, e *epub.Epub) (*zip.Reader, error) {
 
 	// Return a zip reader for inspection
 	return zip.NewReader(bytes.NewReader(data), int64(len(data)))
-}
-
-// createTestImage creates a simple test image of the specified size and color
-func createTestImageColored(width, height int, c color.Color) image.Image {
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	draw.Draw(img, img.Bounds(), &image.Uniform{c}, image.Point{}, draw.Src)
-	return img
 }

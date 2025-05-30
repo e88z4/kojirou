@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/color"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,9 +38,11 @@ func TestCompleteKEPUBImplementation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
-	if cleanup != nil {
-		// defer cleanup()
-	}
+	defer func() {
+		if cleanup != nil {
+			cleanup()
+		}
+	}()
 
 	// Convert to KEPUB
 	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
@@ -581,7 +582,7 @@ func runKEPUBFeatureChecklist(t *testing.T, data []byte) {
 							continue
 						}
 
-						contentBytes, err := ioutil.ReadAll(rc)
+						contentBytes, err := io.ReadAll(rc)
 						rc.Close()
 						if err != nil {
 							continue

@@ -97,9 +97,11 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 				}
 
 				epubObj, cleanup, _ := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
-				if cleanup != nil {
-					/* cleanup() will be called after all conversions below */
-				}
+				defer func() {
+					if cleanup != nil {
+						cleanup()
+					}
+				}()
 				return epubObj
 			},
 		},

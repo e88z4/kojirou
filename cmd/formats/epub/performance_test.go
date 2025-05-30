@@ -14,6 +14,8 @@ import (
 
 // createPerformanceTestManga is a wrapper around createLargeTestManga
 // Keeping this function for backward compatibility
+//
+//nolint:unused // Kept for backward compatibility
 func createPerformanceTestManga() md.Manga {
 	return createLargeTestManga(10, 20)
 }
@@ -57,9 +59,11 @@ func BenchmarkEPUBPerformance(b *testing.B) {
 				if err != nil {
 					b.Fatalf("GenerateEPUB() failed: %v", err)
 				}
-				if cleanup != nil {
-					/* cleanup() will be called after all conversions below */
-				}
+				defer func() {
+					if cleanup != nil {
+						cleanup()
+					}
+				}()
 
 				// Write EPUB to temp file to get size
 				epubPath := filepath.Join(tmpDir, fmt.Sprintf("test-%d.epub", i))

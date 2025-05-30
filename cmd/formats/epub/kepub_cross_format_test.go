@@ -83,9 +83,11 @@ func TestEPUBToKEPUBWithManga(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
-	if cleanup != nil {
-		// defer cleanup()
-	}
+	defer func() {
+		if cleanup != nil {
+			cleanup()
+		}
+	}()
 
 	// Convert to KEPUB
 	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)

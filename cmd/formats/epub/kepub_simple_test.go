@@ -22,9 +22,11 @@ func TestKEPUBSimple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateEPUB() failed: %v", err)
 	}
-	if cleanup != nil {
-		// cleanup() will be called after all conversions below
-	}
+	defer func() {
+		if cleanup != nil {
+			cleanup()
+		}
+	}()
 
 	// Convert to KEPUB
 	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)

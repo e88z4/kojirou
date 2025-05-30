@@ -73,9 +73,11 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GenerateEPUB() failed: %v", err)
 			}
-			if cleanup != nil {
-				// cleanup() will be called after all conversions below
-			}
+			defer func() {
+				if cleanup != nil {
+					cleanup()
+				}
+			}()
 
 			// Convert to KEPUB
 			kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
@@ -173,7 +175,9 @@ func TestKEPUBWithExternalMangaData(t *testing.T) {
 
 				// Add CSS for manga-specific styling
 				cssPath := filepath.Join(tempDir, "manga.css")
-				writeTestCSS(cssPath)
+				if err := writeTestCSS(cssPath); err != nil {
+					return nil, fmt.Errorf("failed to write test CSS: %v", err)
+				}
 				_, err := e.AddCSS(cssPath, "manga.css")
 				if err != nil {
 					return nil, fmt.Errorf("failed to add CSS: %v", err)
@@ -349,23 +353,6 @@ func createMixedOrientationManga() md.Manga {
 		break
 	}
 	return manga
-}
-
-func createPagePath(filename string) string {
-	// In a real test, this would create actual image files
-	// For our tests, we'll just return the path string as if the file existed
-	return filepath.Join(os.TempDir(), "test_manga_images", filename)
-}
-
-func createTestImageFile(path string, width, height int) error {
-	// Create a dummy image file for testing
-	// In a real implementation, this would create an actual image
-	// For our test, just create an empty file
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, []byte("test image data"), 0644)
 }
 
 func writeTestCSS(path string) error {

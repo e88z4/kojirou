@@ -136,8 +136,7 @@ func BenchmarkEPUBGeneration(b *testing.B) {
 				if err != nil {
 					b.Fatalf("GenerateEPUB() failed: %v", err)
 				}
-				if cleanup != nil {
-					// cleanup() will be called after all conversions below
+				if cleanup != nil { //nolint:staticcheck // cleanup() will be called after all conversions below
 				}
 
 				// Write EPUB to temp file to get size

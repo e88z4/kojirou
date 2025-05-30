@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -47,7 +47,7 @@ func ProcessMangaForKEPUB(extractDir string) error {
 // processMangaHTML processes HTML content specifically for manga
 func processMangaHTML(htmlFile string) error {
 	// Read the HTML content
-	content, err := ioutil.ReadFile(htmlFile)
+	content, err := os.ReadFile(htmlFile)
 	if err != nil {
 		return fmt.Errorf("failed to read HTML file: %w", err)
 	}
@@ -68,7 +68,7 @@ func processMangaHTML(htmlFile string) error {
 		return fmt.Errorf("failed to render modified HTML: %w", err)
 	}
 
-	if err := ioutil.WriteFile(htmlFile, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(htmlFile, buf.Bytes(), 0644); err != nil {
 		return fmt.Errorf("failed to write modified HTML: %w", err)
 	}
 
@@ -164,7 +164,7 @@ func addMangaFixedLayoutAttributes(n *html.Node) {
 // addMangaMetadata adds manga-specific metadata to OPF file
 func addMangaMetadata(opfFile string) error {
 	// Read the OPF content
-	content, err := ioutil.ReadFile(opfFile)
+	content, err := os.ReadFile(opfFile)
 	if err != nil {
 		return fmt.Errorf("failed to read OPF file: %w", err)
 	}
@@ -200,7 +200,7 @@ func addMangaMetadata(opfFile string) error {
 	modifiedContent := metadataRegex.ReplaceAllString(opfContent, modifiedMetadata)
 
 	// Write the modified OPF back to the file
-	if err := ioutil.WriteFile(opfFile, []byte(modifiedContent), 0644); err != nil {
+	if err := os.WriteFile(opfFile, []byte(modifiedContent), 0644); err != nil {
 		return fmt.Errorf("failed to write modified OPF: %w", err)
 	}
 
@@ -257,7 +257,7 @@ func IsKEPUB(filePath string) (bool, error) {
 				continue
 			}
 
-			content, err := ioutil.ReadAll(rc)
+			content, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
 				continue
@@ -275,7 +275,7 @@ func IsKEPUB(filePath string) (bool, error) {
 				continue
 			}
 
-			content, err := ioutil.ReadAll(rc)
+			content, err := io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
 				continue

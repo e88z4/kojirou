@@ -302,8 +302,6 @@ func GenerateEPUB(tempDir string, manga mangadex.Manga, widepage kindle.Widepage
 			fmt.Fprintf(os.Stderr, "Added section: %s at %s\n", sectionID, sectionPath)
 			// Mark this chapter as added
 			addedChapters[chapterKey{volID, chapKey}] = true
-			// Release all page keys
-			pageKeys = nil
 			// Encourage GC after each chapter
 			runtime.GC()
 		}

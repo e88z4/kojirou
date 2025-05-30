@@ -216,8 +216,7 @@ func TestEPUBGenerationAndValidation(t *testing.T) {
 				t.Error("GenerateEPUB() returned nil but expected success")
 				return
 			}
-			if cleanup != nil {
-				// cleanup() will be called after all conversions below
+			if cleanup != nil { //nolint:staticcheck // cleanup() will be called after all conversions below
 			}
 
 			// Only run validation if we expect success

@@ -10,8 +10,6 @@ import (
 	"testing"
 
 	"golang.org/x/net/html"
-
-	md "github.com/leotaku/kojirou/mangadex"
 )
 
 // createTestImage creates a test image with the specified dimensions and background color
@@ -23,111 +21,6 @@ func createTestImage(width, height int, bgColor color.Color) image.Image {
 		}
 	}
 	return img
-}
-
-// createEmptyVolumeManga creates a manga with volumes but no chapters
-func createEmptyVolumeManga() md.Manga {
-	manga := md.Manga{
-		Info: md.MangaInfo{
-			Title:   "Test Manga",
-			ID:      "test-manga-id",
-			Authors: []string{"Test Author"},
-		},
-		Volumes: map[md.Identifier]md.Volume{},
-	}
-
-	// Add an empty volume with no chapters
-	volID := md.NewIdentifier("vol1")
-	manga.Volumes[volID] = md.Volume{
-		Info: md.VolumeInfo{
-			Identifier: volID,
-		},
-		Chapters: map[md.Identifier]md.Chapter{},
-	}
-
-	return manga
-}
-
-// createNoTitleManga creates a manga with no title
-func createNoTitleManga() md.Manga {
-	manga := md.Manga{
-		Info: md.MangaInfo{
-			Title:   "",
-			ID:      "test-manga-id",
-			Authors: []string{"Test Author"},
-		},
-		Volumes: map[md.Identifier]md.Volume{},
-	}
-	return manga
-}
-
-// createDetailedWidePageManga creates a manga with wide pages for testing page splitting
-// Different name to avoid conflicts with createWidePageTestManga in other files
-func createDetailedWidePageManga() md.Manga {
-	manga := md.Manga{
-		Info: md.MangaInfo{
-			Title:   "Test Manga",
-			ID:      "test-manga-id",
-			Authors: []string{"Test Author"},
-		},
-		Volumes: map[md.Identifier]md.Volume{},
-	}
-
-	// Create volume 1
-	vol1ID := md.NewIdentifier("vol1")
-	vol1 := md.Volume{
-		Info: md.VolumeInfo{
-			Identifier: vol1ID,
-		},
-		Chapters: map[md.Identifier]md.Chapter{},
-	}
-
-	// Add chapter to volume 1
-	chap1ID := md.NewIdentifier("ch1")
-	chap1 := md.Chapter{
-		Info: md.ChapterInfo{
-			Identifier:       chap1ID,
-			Title:            "Chapter 1",
-			VolumeIdentifier: vol1ID,
-		},
-		Pages: map[int]image.Image{
-			0: createTestImage(1000, 1500, color.White), // Normal portrait
-			1: createTestImage(2000, 1000, color.White), // Wide landscape (1:2 ratio)
-			2: createTestImage(3000, 1000, color.White), // Very wide landscape (1:3 ratio)
-			3: createTestImage(1000, 1500, color.White), // Normal portrait
-		},
-	}
-	vol1.Chapters[chap1ID] = chap1
-
-	// Create volume 2
-	vol2ID := md.NewIdentifier("vol2")
-	vol2 := md.Volume{
-		Info: md.VolumeInfo{
-			Identifier: vol2ID,
-		},
-		Chapters: map[md.Identifier]md.Chapter{},
-	}
-
-	// Add chapter to volume 2
-	chap2ID := md.NewIdentifier("ch2")
-	chap2 := md.Chapter{
-		Info: md.ChapterInfo{
-			Identifier:       chap2ID,
-			Title:            "Chapter 2",
-			VolumeIdentifier: vol2ID,
-		},
-		Pages: map[int]image.Image{
-			0: createTestImage(1000, 1500, color.White), // Normal portrait
-			1: createTestImage(2000, 1200, color.White), // Wide landscape
-		},
-	}
-	vol2.Chapters[chap2ID] = chap2
-
-	// Add volumes to manga
-	manga.Volumes[vol1ID] = vol1
-	manga.Volumes[vol2ID] = vol2
-
-	return manga
 }
 
 // createTempDir returns (string, error) for compatibility with kepub_opf_test.go

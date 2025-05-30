@@ -16,19 +16,6 @@ import (
 	"golang.org/x/text/language"
 )
 
-var langs = []language.Tag{
-	language.Make("ja-JP"),
-	language.Make("en-US"),
-	language.Make("en-GB"),
-	language.Make("de-DE"),
-	language.Make("fr-FR"),
-	language.Make("it-IT"),
-	language.Make("es-ES"),
-	language.Make("es-MX"),
-	language.Make("pt-PT"),
-	language.Make("pt-BR"),
-}
-
 func LoadSkeleton(directory string) (*md.Manga, error) {
 	info := md.MangaInfo{
 		Title: path.Base(directory),

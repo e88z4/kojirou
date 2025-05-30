@@ -4,8 +4,6 @@ package epub
 import (
 	"encoding/xml"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -134,67 +132,4 @@ func (p *OPFProcessor) Serialize() ([]byte, error) {
 	// Add XML declaration
 	output = append([]byte("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"), output...)
 	return output, nil
-}
-
-// findOPFFile finds the OPF file in an extracted EPUB directory
-func findOPFFile(dir string) (string, error) {
-	// First, look for container.xml in META-INF
-	containerPath := filepath.Join(dir, "META-INF", "container.xml")
-	data, err := os.ReadFile(containerPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read container.xml: %w", err)
-	}
-
-	// Parse container.xml to find the OPF file path
-	var container struct {
-		XMLName   xml.Name `xml:"container"`
-		RootFiles struct {
-			RootFile []struct {
-				FullPath string `xml:"full-path,attr"`
-			} `xml:"rootfile"`
-		} `xml:"rootfiles"`
-	}
-
-	if err := xml.Unmarshal(data, &container); err != nil {
-		return "", fmt.Errorf("failed to parse container.xml: %w", err)
-	}
-
-	if len(container.RootFiles.RootFile) == 0 {
-		return "", fmt.Errorf("no rootfile found in container.xml")
-	}
-
-	// Return the full path to the OPF file
-	return filepath.Join(dir, container.RootFiles.RootFile[0].FullPath), nil
-}
-
-// transformOPFFile processes an OPF file for Kobo compatibility
-func transformOPFFile(opfPath string) error {
-	// Read the OPF file
-	data, err := os.ReadFile(opfPath)
-	if err != nil {
-		return fmt.Errorf("failed to read OPF file: %w", err)
-	}
-
-	// Create an OPF processor
-	processor, err := NewOPFProcessor(data)
-	if err != nil {
-		return fmt.Errorf("failed to create OPF processor: %w", err)
-	}
-
-	// Add Kobo metadata
-	processor.AddKoboMetadata()
-
-	// Serialize back to XML
-	output, err := processor.Serialize()
-	if err != nil {
-		return fmt.Errorf("failed to serialize OPF: %w", err)
-	}
-
-	// Write the modified OPF file
-	err = os.WriteFile(opfPath, output, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write OPF file: %w", err)
-	}
-
-	return nil
 }

@@ -229,9 +229,11 @@ func TestEPUBMetadataEdgeCases(t *testing.T) {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if cleanup != nil {
-				// cleanup() will be called after all conversions below
-			}
+			defer func() {
+				if cleanup != nil {
+					cleanup()
+				}
+			}()
 			if epub == nil && !tt.wantErr {
 				t.Fatal("GenerateEPUB() returned nil but expected success")
 			}

@@ -8,7 +8,7 @@ import (
 // ForceRemoveAll recursively removes a directory tree, forcibly changing permissions if needed.
 func ForceRemoveAll(path string) error {
 	// Remove files first
-	filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil
@@ -24,9 +24,11 @@ func ForceRemoveAll(path string) error {
 		}
 		_ = os.Remove(p)
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 	// Remove directories (bottom-up)
-	filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil
@@ -40,7 +42,9 @@ func ForceRemoveAll(path string) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 	_ = os.Chmod(path, 0777)
 	return os.Remove(path)
 }

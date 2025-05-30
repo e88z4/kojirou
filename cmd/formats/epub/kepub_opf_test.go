@@ -16,7 +16,11 @@ func TestUpdateOPFMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temporary directory: %v", err)
 	}
-	defer cleanupTempDir(t, tempDir)
+	t.Cleanup(func() {
+		if err := cleanupTempDir(t, tempDir); err != nil {
+			t.Errorf("cleanupTempDir failed: %v", err)
+		}
+	})
 
 	// Create a sample OPF file
 	opfPath := filepath.Join(tempDir, "package.opf")
@@ -188,7 +192,11 @@ func TestSaveOPF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temporary directory: %v", err)
 	}
-	defer cleanupTempDir(t, tempDir)
+	t.Cleanup(func() {
+		if err := cleanupTempDir(t, tempDir); err != nil {
+			t.Errorf("cleanupTempDir failed: %v", err)
+		}
+	})
 
 	opfPath := filepath.Join(tempDir, "test.opf")
 

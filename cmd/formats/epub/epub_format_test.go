@@ -96,8 +96,7 @@ func TestEPUBMetadataHandling(t *testing.T) {
 				t.Errorf("GenerateEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if cleanup != nil {
-				// defer cleanup()
+			if cleanup != nil { //nolint:staticcheck // Cleanup is deferred in production code
 			}
 
 			if tt.wantErr {
