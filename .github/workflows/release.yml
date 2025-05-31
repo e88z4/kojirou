@@ -22,12 +22,15 @@ jobs:
               run_id: context.payload.workflow_run.id,
             });
 
+            // Get version from tag
+            const version = run.data.head_branch.replace(/^v/, '');
+            
             const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: run.data.head_branch,
               target_commitish: run.data.head_sha,
-              name: `Placeholder Release Name`,
+              name: `Release ${version}`,
               draft: true,
               generate_release_notes: true,
             });
@@ -45,12 +48,21 @@ jobs:
                 artifact_id: artifact.id,
                 archive_format: "zip",
               });
-              await github.rest.repos.uploadReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.data.id,
-                name: `${artifact.name}.zip`,
-                data: download.data,
-                origin: release.data.upload_url,
-              });
+
+              // Extract OS and arch from artifact name
+              const match = artifact.name.match(/dist-kojirou-(.*?)-(.*)/);
+              if (match) {
+                const [_, os, arch] = match;
+                const ext = os === 'windows' ? '.exe' : '';
+                const assetName = `kojirou-${version}-${os}-${arch}${ext}`;
+
+                await github.rest.repos.uploadReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: release.data.id,
+                  name: assetName,
+                  data: download.data,
+                  origin: release.data.upload_url,
+                });
+              }
             }
