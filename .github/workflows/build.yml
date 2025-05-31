@@ -28,9 +28,15 @@ jobs:
         GOARCH: ${{ matrix.GOARCH }}
         CGO_ENABLED: 0
       run: |
-        go build -buildmode exe -o kojirou.exe kojirou.go
+        if [ "${{ matrix.GOOS }}" = "windows" ]; then
+          go build -o kojirou.exe kojirou.go
+        else
+          go build -o kojirou kojirou.go
+        fi
     - name: Upload executable
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist-kojirou-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-        path: kojirou.exe
+        path: |
+          kojirou
+          kojirou.exe
