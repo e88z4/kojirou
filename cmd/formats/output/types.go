@@ -102,5 +102,5 @@ func (k KepubOutput) Extension() string {
 }
 
 func (k KepubOutput) GetBytes() ([]byte, error) {
-	return kepubconv.ConvertToKEPUB(k.Epub)
+	return kepubconv.ConvertToKEPUB(k.Epub, "", 0)
 }

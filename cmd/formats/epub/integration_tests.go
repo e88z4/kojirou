@@ -78,7 +78,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		kepubPath := filepath.Join(tempDir, "test.kepub.epub")
 
 		// Convert EPUB to KEPUB
-		kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+		kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 		if err != nil {
 			t.Fatalf("ConvertToKEPUB() failed: %v", err)
 		}
@@ -177,7 +177,7 @@ func TestSimultaneousFormatGeneration(t *testing.T) {
 	}
 
 	// Convert LTR EPUB to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubLTR)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubLTR, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestOutputFileStructure(t *testing.T) {
 			}
 
 			// Convert to KEPUB
-			kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+			kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 			if err != nil {
 				t.Fatalf("ConvertToKEPUB() failed: %v", err)
 			}

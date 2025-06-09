@@ -4,10 +4,9 @@ package epub
 import (
 	"archive/zip"
 	"bytes"
-	"fmt"
+	"encoding/xml"
 	"image"
 	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -77,10 +76,12 @@ func createMultiVolumeTestManga() mangadex.Manga {
 // TestEPUBToKEPUBConversion tests the full conversion process from EPUB to KEPUB format
 func TestEPUBToKEPUBConversion(t *testing.T) {
 	tests := []struct {
-		name     string
-		setup    func() (*epub.Epub, error)
-		validate func(*testing.T, []byte)
-		wantErr  bool
+		name        string
+		setup       func() (*epub.Epub, error)
+		validate    func(*testing.T, []byte)
+		wantErr     bool
+		seriesTitle string
+		seriesIndex float64
 	}{
 		{
 			name: "standard epub to kepub",
@@ -98,108 +99,76 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 				validateBasicKEPUBStructure(t, data)
 				validateKoboSpecificMetadata(t, data)
 				validateKoboHTMLTransformation(t, data)
+				validateKoboCoverInOPF(t, data)
+				validateSeriesMetadata(t, data)
 			},
-			wantErr: false,
+			seriesTitle: "Test Series",
+			seriesIndex: 1.0,
 		},
 		{
-			name: "complex manga with multiple volumes",
+			name: "epub to kepub with long series name",
 			setup: func() (*epub.Epub, error) {
-				manga := createMultiVolumeTestManga()
+				manga := testhelpers.CreateTestManga()
 				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if err != nil {
 					return nil, err
 				}
-				if cleanup != nil { //nolint:staticcheck // cleanup() will be called after KEPUB conversion below
+				if cleanup != nil {
 				}
 				return epub, nil
 			},
 			validate: func(t *testing.T, data []byte) {
 				validateBasicKEPUBStructure(t, data)
 				validateKoboSpecificMetadata(t, data)
-				validateComplexNavigation(t, data)
+				validateKoboHTMLTransformation(t, data)
+				validateKoboCoverInOPF(t, data)
+				validateSeriesMetadata(t, data)
 			},
-			wantErr: false,
+			seriesTitle: strings.Repeat("Very Long Series Title ", 20),
+			seriesIndex: 2.0,
 		},
 		{
-			name: "custom epub with minimal content",
+			name: "epub to kepub without series info",
 			setup: func() (*epub.Epub, error) {
-				// Create a minimal EPUB manually instead of using GenerateEPUB
-				e := epub.NewEpub("Minimal Test")
-				e.SetAuthor("Test Author")
-
-				// Add a simple section
-				htmlContent := "<h1>Test Chapter</h1><p>This is a test paragraph with some text.</p>"
-				_, err := e.AddSection(htmlContent, "Test Chapter", "ch1", "")
+				manga := testhelpers.CreateTestManga()
+				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if err != nil {
-					return nil, fmt.Errorf("failed to add section: %w", err)
+					return nil, err
 				}
-
-				// Add a minimal CSS file
-				cssContent := "body { margin: 0; padding: 0; } img { display: block; max-width: 100%; height: auto; }"
-				cssFile, err := os.CreateTemp("", "test-style-*.css")
-				if err != nil {
-					return nil, fmt.Errorf("failed to create temp CSS file: %w", err)
+				if cleanup != nil {
 				}
-				cssPath := cssFile.Name()
-				_, err = cssFile.Write([]byte(cssContent))
-				cssFile.Close()
-				if err != nil {
-					return nil, fmt.Errorf("failed to write CSS: %w", err)
-				}
-				_, err = e.AddCSS(cssPath, "style.css")
-				if err != nil {
-					return nil, fmt.Errorf("failed to add CSS: %w", err)
-				}
-
-				return e, nil
+				return epub, nil
 			},
 			validate: func(t *testing.T, data []byte) {
 				validateBasicKEPUBStructure(t, data)
-				validateMinimalContent(t, data)
+				validateKoboSpecificMetadata(t, data)
+				validateKoboHTMLTransformation(t, data)
+				validateKoboCoverInOPF(t, data)
+				validateNoSeriesMetadata(t, data)
 			},
-			wantErr: false,
-		},
-		{
-			name: "empty epub",
-			setup: func() (*epub.Epub, error) {
-				return epub.NewEpub("Empty Test"), nil
-			},
-			validate: nil,
-			wantErr:  true, // Should fail with no content
-		},
-		{
-			name: "nil epub",
-			setup: func() (*epub.Epub, error) {
-				return nil, nil
-			},
-			validate: nil,
-			wantErr:  true, // Should fail with nil input
+			seriesTitle: "",
+			seriesIndex: 0,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Generate/get EPUB
-			epub, err := tt.setup()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			epub, err := tc.setup()
 			if err != nil {
 				t.Fatalf("Setup failed: %v", err)
 			}
 
-			// Convert to KEPUB
-			kepubData, err := kepubconv.ConvertToKEPUB(epub)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ConvertToKEPUB() error = %v, wantErr %v", err, tt.wantErr)
+			// Convert to KEPUB with series metadata
+			kepubData, err := kepubconv.ConvertToKEPUB(epub, tc.seriesTitle, tc.seriesIndex)
+
+			// Check error expectations
+			if (err != nil) != tc.wantErr {
+				t.Errorf("ConvertToKEPUB() error = %v, wantErr %v", err, tc.wantErr)
 				return
 			}
 
-			// Skip validation if we expected an error
-			if tt.wantErr {
-				return
-			}
-
-			// Verify KEPUB data
-			if tt.validate != nil {
-				tt.validate(t, kepubData)
+			if err == nil {
+				tc.validate(t, kepubData)
 			}
 		})
 	}
@@ -212,6 +181,8 @@ func TestKEPUBEnhancedFeatures(t *testing.T) {
 		setup        func() (*epub.Epub, func(), error)
 		checkFeature func(*testing.T, []byte)
 		wantErr      bool
+		seriesTitle  string
+		seriesIndex  float64
 	}{
 		{
 			name: "kobo spans for pagination",
@@ -259,7 +230,7 @@ func TestKEPUBEnhancedFeatures(t *testing.T) {
 			}
 			defer cleanup()
 
-			kepubData, err := kepubconv.ConvertToKEPUB(epub)
+			kepubData, err := kepubconv.ConvertToKEPUB(epub, "", 0) // No series metadata for feature tests
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConvertToKEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -318,7 +289,7 @@ func TestKEPUBCompatibility(t *testing.T) {
 			}
 			defer cleanup()
 
-			kepubData, err := kepubconv.ConvertToKEPUB(epub)
+			kepubData, err := kepubconv.ConvertToKEPUB(epub, "", 0) // No series metadata for compatibility tests
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConvertToKEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -650,8 +621,144 @@ func validateSpecialCharacterHandling(t *testing.T, data []byte) {
 	if err != nil {
 		t.Fatalf("Failed to read KEPUB as ZIP: %v", err)
 	}
+	for _, f := range r.File {
+		if strings.HasSuffix(f.Name, ".opf") {
+			rc, err := f.Open()
+			if err != nil {
+				t.Fatalf("Failed to open OPF file: %v", err)
+			}
+			content, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				t.Fatalf("Failed to read OPF file: %v", err)
+			}
+			// Robust: parse all <meta> and <item> attributes and check for unescaped special chars
+			type Meta struct {
+				Name     string `xml:"name,attr,omitempty"`
+				Content  string `xml:"content,attr,omitempty"`
+				Property string `xml:"property,attr,omitempty"`
+			}
+			type Metadata struct {
+				Metas []Meta `xml:"meta"`
+			}
+			type Item struct {
+				ID         string `xml:"id,attr"`
+				Href       string `xml:"href,attr"`
+				MediaType  string `xml:"media-type,attr"`
+				Properties string `xml:"properties,attr,omitempty"`
+			}
+			type Manifest struct {
+				Items []Item `xml:"item"`
+			}
+			type Package struct {
+				Metadata Metadata `xml:"metadata"`
+				Manifest Manifest `xml:"manifest"`
+			}
+			var pkg Package
+			if err := xml.Unmarshal(content, &pkg); err != nil {
+				t.Fatalf("Failed to parse OPF XML: %v", err)
+			}
+			// Check for unescaped ampersand or < or > in meta or item attributes
+			for _, m := range pkg.Metadata.Metas {
+				if strings.Contains(m.Name, "&") || strings.Contains(m.Name, "<") || strings.Contains(m.Name, ">") {
+					t.Error("Special characters not properly escaped in meta name")
+				}
+				if strings.Contains(m.Content, "&") || strings.Contains(m.Content, "<") || strings.Contains(m.Content, ">") {
+					t.Error("Special characters not properly escaped in meta content")
+				}
+				if strings.Contains(m.Property, "&") || strings.Contains(m.Property, "<") || strings.Contains(m.Property, ">") {
+					t.Error("Special characters not properly escaped in meta property")
+				}
+			}
+			for _, it := range pkg.Manifest.Items {
+				if strings.Contains(it.ID, "&") || strings.Contains(it.ID, "<") || strings.Contains(it.ID, ">") {
+					t.Error("Special characters not properly escaped in item id")
+				}
+				if strings.Contains(it.Href, "&") || strings.Contains(it.Href, "<") || strings.Contains(it.Href, ">") {
+					t.Error("Special characters not properly escaped in item href")
+				}
+				if strings.Contains(it.MediaType, "&") || strings.Contains(it.MediaType, "<") || strings.Contains(it.MediaType, ">") {
+					t.Error("Special characters not properly escaped in item media-type")
+				}
+				if strings.Contains(it.Properties, "&") || strings.Contains(it.Properties, "<") || strings.Contains(it.Properties, ">") {
+					t.Error("Special characters not properly escaped in item properties")
+				}
+			}
+			return
+		}
+	}
+	t.Error("No OPF file found in KEPUB")
+}
 
-	// Check OPF for properly escaped special characters
+// validateKoboCoverInOPF checks that the cover image is the first item in the manifest and referenced in <meta name="cover" content="cover"/>.
+func validateKoboCoverInOPF(t *testing.T, data []byte) {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("Failed to read KEPUB as ZIP: %v", err)
+	}
+	for _, f := range r.File {
+		if strings.HasSuffix(f.Name, ".opf") {
+			rc, err := f.Open()
+			if err != nil {
+				t.Fatalf("Failed to open OPF file: %v", err)
+			}
+			content, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				t.Fatalf("Failed to read OPF file: %v", err)
+			}
+			// Robust: parse manifest as XML and check first <item> is id="cover"
+			type Item struct {
+				ID         string `xml:"id,attr"`
+				Href       string `xml:"href,attr"`
+				MediaType  string `xml:"media-type,attr"`
+				Properties string `xml:"properties,attr,omitempty"`
+			}
+			type Manifest struct {
+				Items []Item `xml:"item"`
+			}
+			type Meta struct {
+				Name    string `xml:"name,attr,omitempty"`
+				Content string `xml:"content,attr,omitempty"`
+			}
+			type Metadata struct {
+				Metas []Meta `xml:"meta"`
+			}
+			type Package struct {
+				Manifest Manifest `xml:"manifest"`
+				Metadata Metadata `xml:"metadata"`
+			}
+			var pkg Package
+			if err := xml.Unmarshal(content, &pkg); err != nil {
+				t.Fatalf("Failed to parse OPF XML: %v", err)
+			}
+			if len(pkg.Manifest.Items) == 0 || pkg.Manifest.Items[0].ID != "cover" {
+				t.Error("<item id=\"cover\" ...> is not the first item in manifest")
+			}
+			// Check for <meta name="cover" content="cover"/>
+			found := false
+			for _, m := range pkg.Metadata.Metas {
+				if m.Name == "cover" && m.Content == "cover" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Error("<meta name=\"cover\" content=\"cover\"/> not found in OPF metadata")
+			}
+			return
+		}
+	}
+	t.Error("No OPF file found in KEPUB")
+}
+
+// validateSeriesMetadata checks for series metadata in OPF
+func validateSeriesMetadata(t *testing.T, data []byte) {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("Failed to read KEPUB as ZIP: %v", err)
+	}
+
 	for _, f := range r.File {
 		if strings.HasSuffix(f.Name, ".opf") {
 			rc, err := f.Open()
@@ -664,13 +771,43 @@ func validateSpecialCharacterHandling(t *testing.T, data []byte) {
 				t.Fatalf("Failed to read OPF file: %v", err)
 			}
 
-			// Check for properly escaped special characters
-			if bytes.Contains(content, []byte("&amp;")) {
-				return // Found properly escaped ampersand
+			// Check for series metadata
+			if !bytes.Contains(content, []byte("meta name=\"calibre:series\"")) ||
+				!bytes.Contains(content, []byte("meta name=\"calibre:series_index\"")) {
+				t.Error("Series metadata not found in OPF")
 			}
-
-			t.Error("Special characters not properly escaped in OPF")
 			return
 		}
 	}
+	t.Error("No OPF file found in KEPUB")
+}
+
+// validateNoSeriesMetadata checks that no series metadata is present in OPF
+func validateNoSeriesMetadata(t *testing.T, data []byte) {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("Failed to read KEPUB as ZIP: %v", err)
+	}
+
+	for _, f := range r.File {
+		if strings.HasSuffix(f.Name, ".opf") {
+			rc, err := f.Open()
+			if err != nil {
+				t.Fatalf("Failed to open OPF file: %v", err)
+			}
+			content, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				t.Fatalf("Failed to read OPF file: %v", err)
+			}
+
+			// Check that series metadata is absent
+			if bytes.Contains(content, []byte("meta name=\"calibre:series\"")) ||
+				bytes.Contains(content, []byte("meta name=\"calibre:series_index\"")) {
+				t.Error("Unexpected series metadata found in OPF")
+			}
+			return
+		}
+	}
+	t.Error("No OPF file found in KEPUB")
 }

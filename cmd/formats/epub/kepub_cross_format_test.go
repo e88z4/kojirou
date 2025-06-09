@@ -28,7 +28,7 @@ func TestEPUBToKEPUBDependencies(t *testing.T) {
 	}
 
 	// Test KEPUB conversion
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 	if err != nil {
 		t.Fatalf("Basic ConvertToKEPUB() failed: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestEPUBToKEPUBPreservesMetadata(t *testing.T) {
 	}
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(e)
+	kepubData, err := kepubconv.ConvertToKEPUB(e, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestEPUBToKEPUBWithManga(t *testing.T) {
 	}()
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}

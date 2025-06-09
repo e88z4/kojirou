@@ -41,7 +41,7 @@ func TestKEPUBConversionPerformance(t *testing.T) {
 
 	// Measure conversion time
 	start := time.Now()
-	kepubData, err := kepubconv.ConvertToKEPUB(e)
+	kepubData, err := kepubconv.ConvertToKEPUB(e, "Performance Test Series", 1)
 	elapsed := time.Since(start)
 
 	// Check for errors
@@ -84,8 +84,8 @@ func TestKEPUBMemoryUsage(t *testing.T) {
 		}
 	}()
 
-	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	// Convert to KEPUB with manga title as series name
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, manga.Info.Title, 1)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}

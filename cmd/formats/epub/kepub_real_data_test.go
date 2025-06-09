@@ -28,6 +28,8 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 		name        string
 		setupManga  func() md.Manga
 		expectation string
+		seriesTitle string
+		seriesIndex float64
 	}{
 		{
 			name: "standard manga with regular pages",
@@ -35,6 +37,8 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 				return createStandardManga()
 			},
 			expectation: "successful conversion",
+			seriesTitle: "Test Series",
+			seriesIndex: 1.0,
 		},
 		{
 			name: "manga with very long title and author",
@@ -46,6 +50,8 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 				return manga
 			},
 			expectation: "successful conversion with properly handled long strings",
+			seriesTitle: strings.Repeat("Very Long Series Title ", 20),
+			seriesIndex: 2.0,
 		},
 		{
 			name: "manga with color pages",
@@ -53,6 +59,8 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 				return createColorManga()
 			},
 			expectation: "successful conversion preserving color",
+			seriesTitle: "Color Series",
+			seriesIndex: 3.0,
 		},
 		{
 			name: "manga with mixed page orientations",
@@ -60,6 +68,8 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 				return createMixedOrientationManga()
 			},
 			expectation: "successful conversion respecting orientations",
+			seriesTitle: "Mixed Orientation Series",
+			seriesIndex: 4.0,
 		},
 	}
 
@@ -79,8 +89,8 @@ func TestKEPUBWithRealWorldManga(t *testing.T) {
 				}
 			}()
 
-			// Convert to KEPUB
-			kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+			// Convert to KEPUB with series metadata
+			kepubData, err := kepubconv.ConvertToKEPUB(epubObj, tc.seriesTitle, tc.seriesIndex)
 			if err != nil {
 				t.Fatalf("ConvertToKEPUB() failed: %v", err)
 			}
@@ -250,8 +260,8 @@ func TestKEPUBWithExternalMangaData(t *testing.T) {
 				t.Fatalf("Failed to setup sample: %v", err)
 			}
 
-			// Convert to KEPUB
-			kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+			// Convert to KEPUB with default empty series metadata
+			kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 			if err != nil {
 				t.Fatalf("ConvertToKEPUB() failed: %v", err)
 			}

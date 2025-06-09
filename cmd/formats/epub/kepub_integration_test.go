@@ -35,7 +35,7 @@ func TestMultiFormatGeneration(t *testing.T) {
 	}
 
 	// Generate KEPUB
-	kepubBytes, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubBytes, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 	if err != nil {
 		t.Fatalf("Failed to convert to KEPUB: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestMultiFormatGeneration(t *testing.T) {
 		defer wg.Done()
 
 		// Convert EPUB to KEPUB
-		kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+		kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 		if err != nil {
 			errors <- fmt.Errorf("KEPUB conversion failed: %v", err)
 			return

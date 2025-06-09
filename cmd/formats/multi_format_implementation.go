@@ -194,7 +194,7 @@ type KEPUBFormatOutput struct {
 // GetBytes returns the KEPUB as a byte array
 func (k *KEPUBFormatOutput) GetBytes() ([]byte, error) {
 	// Convert EPUB to KEPUB
-	data, err := kepubconv.ConvertToKEPUB(k.epub)
+	data, err := kepubconv.ConvertToKEPUB(k.epub, "", 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to KEPUB: %w", err)
 	}

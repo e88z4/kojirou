@@ -7,11 +7,11 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 
 	"github.com/leotaku/kojirou/cmd/formats/output"
 	"github.com/leotaku/kojirou/cmd/formats/progress"
+	"github.com/leotaku/kojirou/cmd/formats/util"
 	md "github.com/leotaku/kojirou/mangadex"
 )
 
@@ -21,20 +21,27 @@ type NormalizedDirectory struct {
 }
 
 func NewNormalizedDirectory(target, title string, kindleFolder bool) NormalizedDirectory {
+	title = util.SanitizePOSIXName(title)
+	title = strings.ReplaceAll(title, ":", "_")
+	title = strings.ReplaceAll(title, " ", "_") // Remove spaces for POSIX compliance
+	title = strings.Trim(title, ".")            // Remove trailing/leading dots
+	if title == "" || title == "." || title == ".." {
+		title = "untitled"
+	}
 	switch {
 	case kindleFolder && target == "":
 		return NormalizedDirectory{
-			bookDirectory:      path.Join("kindle", "documents", pathnameFromTitle(title)),
+			bookDirectory:      path.Join("kindle", "documents", title),
 			thumbnailDirectory: path.Join("kindle", "system", "thumbnails"),
 		}
 	case kindleFolder:
 		return NormalizedDirectory{
-			bookDirectory:      path.Join(target, "documents", pathnameFromTitle(title)),
+			bookDirectory:      path.Join(target, "documents", title),
 			thumbnailDirectory: path.Join(target, "system", "thumbnails"),
 		}
 	case target == "":
 		return NormalizedDirectory{
-			bookDirectory: pathnameFromTitle(title),
+			bookDirectory: title,
 		}
 	default:
 		return NormalizedDirectory{
@@ -145,22 +152,7 @@ func (n *NormalizedDirectory) GetExistingFormats(identifier md.Identifier) map[s
 }
 
 func pathnameFromTitle(filename string) string {
-	switch runtime.GOOS {
-	case "windows":
-		filename = strings.ReplaceAll(filename, "\"", "＂")
-		filename = strings.ReplaceAll(filename, "\\", "＼")
-		filename = strings.ReplaceAll(filename, "<", "＜")
-		filename = strings.ReplaceAll(filename, ">", "＞")
-		filename = strings.ReplaceAll(filename, ":", "：")
-		filename = strings.ReplaceAll(filename, "|", "｜")
-		filename = strings.ReplaceAll(filename, "?", "？")
-		filename = strings.ReplaceAll(filename, "*", "＊")
-		filename = strings.TrimRight(filename, ". ")
-	case "darwin":
-		filename = strings.ReplaceAll(filename, ":", "：")
-	}
-
-	return strings.ReplaceAll(filename, "/", "／")
+	return util.SanitizePOSIXName(filename)
 }
 
 func exists(pathname string) bool {

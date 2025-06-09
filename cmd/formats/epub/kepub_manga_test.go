@@ -27,7 +27,7 @@ func TestKEPUBFromManga(t *testing.T) {
 	}()
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, manga.Info.Title, 1)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -35,4 +35,7 @@ func TestKEPUBFromManga(t *testing.T) {
 	if len(kepubData) == 0 {
 		t.Error("KEPUB data is empty")
 	}
+
+	// Verify series metadata was properly added
+	validateSeriesMetadata(t, kepubData)
 }

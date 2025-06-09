@@ -3,6 +3,7 @@ package kindle
 import (
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	md "github.com/leotaku/kojirou/mangadex"
@@ -107,5 +108,37 @@ func TestGetExistingFormats(t *testing.T) {
 
 	if _, exists := formats["azw3"]; exists {
 		t.Error("AZW3 format should not exist")
+	}
+}
+
+func TestPOSIXComplianceForKindlePaths(t *testing.T) {
+	testDir := t.TempDir()
+	specialTitle := "Test/Series: 01. " // includes slash, colon, space, dot
+	identifier := md.NewIdentifier("1.5")
+
+	dir := NewNormalizedDirectory(testDir, specialTitle, true)
+	// Only check the last element (directory name) for forbidden characters
+	bookDirBase := path.Base(dir.bookDirectory)
+	forbidden := []string{"/", ":", " ", "."}
+	for _, f := range forbidden {
+		if strings.Contains(bookDirBase, f) {
+			t.Errorf("bookDirectory base contains forbidden character '%s': %s", f, bookDirBase)
+		}
+	}
+	// File name should be POSIX compliant (excluding extension)
+	mobiPath := dir.Path(identifier, "azw3")
+	fileBase := path.Base(mobiPath)
+	fileName := fileBase
+	if idx := strings.Index(fileBase, "."); idx != -1 {
+		fileName = fileBase[:idx]
+	}
+	for _, f := range forbidden {
+		if strings.Contains(fileName, f) {
+			t.Errorf("MOBI file name contains forbidden character '%s': %s", f, fileName)
+		}
+	}
+	// Should not be empty or reserved
+	if bookDirBase == "" || bookDirBase == "." || bookDirBase == ".." {
+		t.Errorf("bookDirectory base is reserved or empty: %s", bookDirBase)
 	}
 }

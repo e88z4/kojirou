@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package>
+<metadata>
+  <meta name="cover" content="cover"/>
+  <meta property="role"/>
+  <meta property="dcterms:modified"/>
+  <meta property="kobo:content-type" content="comic"/>
+  <meta property="kobo:epub-version" content="3.0"/>
+  <meta property="rendition:layout" content="pre-paginated"/>
+  <meta property="rendition:orientation" content="portrait"/>
+  <meta property="rendition:spread" content="none"/>
+  <meta property="rendition:flow" content="paginated"/>
+  <meta property="page-progression-direction" content="rtl"/>
+</metadata>
+<manifest>
+  <item id="cover" href="images/page-1-1-1-0.jpg" media-type="image/jpeg" properties="cover-image"/>
+  <item id="style.css" href="css/style.css" media-type="text/css"/>
+  <item id="volume-1.xhtml" href="xhtml/volume-1.xhtml" media-type="application/xhtml+xml"/>
+  <item id="chapter-1-1-1.xhtml" href="xhtml/chapter-1-1-1.xhtml" media-type="application/xhtml+xml"/>
+  <item id="nav.xhtml" href="xhtml/nav.xhtml" media-type="application/xhtml+xml"/>
+  <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+  <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+</manifest>
+</package>

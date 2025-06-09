@@ -3,6 +3,7 @@ package kepubconv
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -22,7 +23,7 @@ import (
 const KEPUBExtension = ".kepub.epub"
 
 // ConvertToKEPUB transforms a standard EPUB object into a Kobo-compatible KEPUB.
-func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
+func ConvertToKEPUB(epubBook *epub.Epub, seriesTitle string, seriesIndex float64) ([]byte, error) {
 	var retErr error
 	// Input validation
 	if epubBook == nil {
@@ -46,7 +47,7 @@ func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
 	// Create necessary CSS files for EPUB write operation
 	// The go-epub library may look in several places for CSS files
 	cssContent := "body { margin: 0; padding: 0; } img { display: block; max-width: 100%; height: auto; }"
-	
+
 	// Create a style.css file in multiple possible locations
 	for _, dir := range []string{"css", "001", ""} {
 		styleDir := filepath.Join(tempDir, dir)
@@ -77,7 +78,7 @@ func ConvertToKEPUB(epubBook *epub.Epub) ([]byte, error) {
 	}
 
 	// Step 3: Process EPUB contents for Kobo compatibility
-	if err := processEPUBForKobo(extractDir); err != nil {
+	if err := processEPUBForKobo(extractDir, seriesTitle, seriesIndex); err != nil {
 		return nil, fmt.Errorf("failed to process EPUB for Kobo: %w", err)
 	}
 
@@ -151,7 +152,7 @@ func extractEPUB(epubPath, extractDir string) error {
 }
 
 // processEPUBForKobo modifies the contents of an extracted EPUB directory for Kobo compatibility.
-func processEPUBForKobo(extractDir string) error {
+func processEPUBForKobo(extractDir string, seriesTitle string, seriesIndex float64) error {
 	// 1. Inject Kobo-specific metadata into OPF files (recursive)
 	opfFiles := []string{}
 	if err := filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
@@ -167,7 +168,12 @@ func processEPUBForKobo(extractDir string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read OPF file: %w", err)
 		}
-		output := injectKoboMetadata(data)
+		output := injectKoboMetadata(data, seriesTitle, seriesIndex)
+		// --- Ensure cover image is first in manifest and referenced in metadata ---
+		output, err = ensureKoboCoverInOPF(output)
+		if err != nil {
+			return fmt.Errorf("failed to ensure Kobo cover in OPF: %w", err)
+		}
 		if err := os.WriteFile(opfFile, output, 0644); err != nil {
 			return fmt.Errorf("failed to write modified OPF file: %w", err)
 		}
@@ -198,58 +204,83 @@ func processEPUBForKobo(extractDir string) error {
 }
 
 // injectKoboMetadata adds Kobo-specific metadata to the OPF XML content.
-func injectKoboMetadata(data []byte) []byte {
+func injectKoboMetadata(data []byte, seriesTitle string, seriesIndex float64) []byte {
 	opf := string(data)
 	// 1. Inject Kobo/rendition namespaces into <package ...>
 	packageRe := regexp.MustCompile(`(?s)<package([^>]*)>`)
 	opf = packageRe.ReplaceAllStringFunc(opf, func(pkgTag string) string {
 		// Always add Kobo/rendition namespaces if not present
 		if !strings.Contains(pkgTag, "xmlns:rendition") {
-			pkgTag = strings.Replace(pkgTag, ">", " xmlns:rendition=\"http://www.idpf.org/vocab/rendition/#\">", 1)
+			pkgTag = strings.Replace(pkgTag, ">", ` xmlns:rendition="http://www.idpf.org/vocab/rendition/#">`, 1)
 		}
 		if !strings.Contains(pkgTag, "xmlns:kobo") {
-			pkgTag = strings.Replace(pkgTag, ">", " xmlns:kobo=\"http://kobobooks.com/ns/kobo\">", 1)
+			pkgTag = strings.Replace(pkgTag, ">", ` xmlns:kobo="http://kobobooks.com/ns/kobo">`, 1)
 		}
 		return pkgTag
 	})
-	// If regex did not match (e.g. <package ...> is on one line), do a fallback replace
-	if !strings.Contains(opf, "xmlns:rendition") {
-		opf = strings.Replace(opf, "<package ", "<package xmlns:rendition=\"http://www.idpf.org/vocab/rendition/#\" ", 1)
-	}
-	if !strings.Contains(opf, "xmlns:kobo") {
-		opf = strings.Replace(opf, "<package ", "<package xmlns:kobo=\"http://kobobooks.com/ns/kobo\" ", 1)
-	}
+
 	// 2. Insert required meta tags as direct children of <metadata>, but only if not already present
-	requiredMeta := []struct{ property, content string }{
-		{"kobo:content-type", "comic"},
-		{"kobo:epub-version", "3.0"},
-		{"rendition:layout", "pre-paginated"},
-		{"rendition:orientation", "portrait"},
-		{"rendition:spread", "none"},
-		{"rendition:flow", "paginated"},
-		{"dcterms:modified", time.Now().UTC().Format("2006-01-02T15:04:05Z")},
-		{"page-progression-direction", "rtl"},
+	requiredMeta := []struct{ keyType, key, content string }{
+		{"property", "kobo:content-type", "comic"},
+		{"property", "kobo:epub-version", "3.0"},
+		{"property", "rendition:layout", "pre-paginated"},
+		{"property", "rendition:orientation", "portrait"},
+		{"property", "rendition:spread", "none"},
+		{"property", "rendition:flow", "paginated"},
+		{"property", "dcterms:modified", time.Now().UTC().Format("2006-01-02T15:04:05Z")},
+		{"property", "page-progression-direction", "rtl"},
 	}
+
+	// Add Calibre series metadata if series title is provided
+	if seriesTitle != "" {
+		requiredMeta = append(requiredMeta,
+			struct{ keyType, key, content string }{
+				keyType: "name",
+				key:     "calibre:series",
+				content: seriesTitle,
+			},
+			struct{ keyType, key, content string }{
+				keyType: "name",
+				key:     "calibre:series_index",
+				content: fmt.Sprintf("%.1f", seriesIndex),
+			},
+		)
+	}
+
+	// Check which metadata is already present
 	present := map[string]bool{}
-	metaRe := regexp.MustCompile(`<meta[^>]+property=\"([^\"]+)\"[^>]*/?>`)
+	metaRe := regexp.MustCompile(`<meta[^>]+(?:property|name)="([^"]+)"[^>]*/?>`)
 	for _, m := range metaRe.FindAllStringSubmatch(opf, -1) {
 		present[m[1]] = true
 	}
+
+	// Build the metadata insert string with proper escaping
 	var metaInsert strings.Builder
 	for _, m := range requiredMeta {
-		if !present[m.property] {
-			metaInsert.WriteString(`<meta property=\"`)
-			metaInsert.WriteString(m.property)
-			metaInsert.WriteString(`\" content=\"`)
-			metaInsert.WriteString(m.content)
+		if !present[m.key] {
+			metaInsert.WriteString(`<meta `)
+			metaInsert.WriteString(m.keyType)
+			metaInsert.WriteString(`="`)
+			metaInsert.WriteString(xmlEscape(m.key))
+			metaInsert.WriteString(`" content="`)
+			metaInsert.WriteString(xmlEscape(m.content))
 			metaInsert.WriteString(`"/>`)
 		}
 	}
+
+	// Insert the new metadata before closing </metadata> tag
 	metadataCloseRe := regexp.MustCompile(`(?s)(</metadata>)`)
 	if metaInsert.Len() > 0 {
 		opf = metadataCloseRe.ReplaceAllString(opf, metaInsert.String()+"$1")
 	}
 	return []byte(opf)
+}
+
+// xmlEscape escapes special characters for XML attributes and text content
+func xmlEscape(s string) string {
+	var buf strings.Builder
+	xml.EscapeText(&buf, []byte(s))
+	return buf.String()
 }
 
 // addKoboAttributes adds Kobo-specific attributes to HTML content.
@@ -439,4 +470,193 @@ func packageKEPUB(extractDir, kepubPath string) error {
 	}
 
 	return nil
+}
+
+// ensureKoboCoverInOPF ensures the cover image is the first item in the manifest and referenced in <meta name="cover" content="cover"/>.
+func ensureKoboCoverInOPF(opfData []byte) ([]byte, error) {
+	type item struct {
+		ID         string `xml:"id,attr"`
+		Href       string `xml:"href,attr"`
+		MediaType  string `xml:"media-type,attr"`
+		Properties string `xml:"properties,attr,omitempty"`
+	}
+
+	type manifest struct {
+		XMLName xml.Name `xml:"manifest"`
+		Items   []item   `xml:"item"`
+	}
+
+	type meta struct {
+		Name     string `xml:"name,attr,omitempty"`
+		Content  string `xml:"content,attr,omitempty"`
+		Property string `xml:"property,attr,omitempty"`
+	}
+
+	type metadata struct {
+		XMLName xml.Name `xml:"metadata"`
+		Metas   []meta   `xml:"meta"`
+	}
+
+	type opfPackage struct {
+		XMLName  xml.Name `xml:"package"`
+		Metadata metadata `xml:"metadata"`
+		Manifest manifest `xml:"manifest"`
+	}
+
+	var pkg opfPackage
+	if err := xml.Unmarshal(opfData, &pkg); err != nil {
+		return opfData, err
+	}
+
+	// Find cover image using strict priority order:
+	coverIdx := -1
+	// 1. Properties contains "cover-image"
+	for i, it := range pkg.Manifest.Items {
+		if strings.Contains(it.Properties, "cover-image") && strings.HasPrefix(it.MediaType, "image/") {
+			coverIdx = i
+			break
+		}
+	}
+	// 2. id="cover" and image/*
+	if coverIdx == -1 {
+		for i, it := range pkg.Manifest.Items {
+			if it.ID == "cover" && strings.HasPrefix(it.MediaType, "image/") {
+				coverIdx = i
+				break
+			}
+		}
+	}
+	// 3. href contains 'cover' and image/*
+	if coverIdx == -1 {
+		for i, it := range pkg.Manifest.Items {
+			if strings.Contains(strings.ToLower(it.Href), "cover") && strings.HasPrefix(it.MediaType, "image/") {
+				coverIdx = i
+				break
+			}
+		}
+	}
+	// 4. meta[name=cover] content reference
+	if coverIdx == -1 {
+		var coverId string
+		for _, m := range pkg.Metadata.Metas {
+			if m.Name == "cover" {
+				coverId = m.Content
+				break
+			}
+		}
+		if coverId != "" {
+			for i, it := range pkg.Manifest.Items {
+				if it.ID == coverId && strings.HasPrefix(it.MediaType, "image/") {
+					coverIdx = i
+					break
+				}
+			}
+		}
+	}
+	// 5. first image/* item
+	if coverIdx == -1 {
+		for i, it := range pkg.Manifest.Items {
+			if strings.HasPrefix(it.MediaType, "image/") {
+				coverIdx = i
+				break
+			}
+		}
+	}
+
+	// Always move the cover to the first position if found
+	if coverIdx >= 0 && len(pkg.Manifest.Items) > 0 {
+		coverItem := pkg.Manifest.Items[coverIdx]
+		// Remove the cover item from its current position
+		pkg.Manifest.Items = append(pkg.Manifest.Items[:coverIdx], pkg.Manifest.Items[coverIdx+1:]...)
+		// Insert at the front
+		pkg.Manifest.Items = append([]item{coverItem}, pkg.Manifest.Items...)
+	}
+
+	// Ensure cover id is "cover" and has cover-image property
+	if len(pkg.Manifest.Items) > 0 {
+		pkg.Manifest.Items[0].ID = "cover"
+		if pkg.Manifest.Items[0].Properties == "" {
+			pkg.Manifest.Items[0].Properties = "cover-image"
+		} else if !strings.Contains(pkg.Manifest.Items[0].Properties, "cover-image") {
+			pkg.Manifest.Items[0].Properties += " cover-image"
+		}
+	}
+
+	// Ensure <meta name="cover" content="cover"/> exists
+	hasCoverMeta := false
+	for _, m := range pkg.Metadata.Metas {
+		if m.Name == "cover" && m.Content == "cover" {
+			hasCoverMeta = true
+			break
+		}
+	}
+	if !hasCoverMeta {
+		pkg.Metadata.Metas = append([]meta{{Name: "cover", Content: "cover"}}, pkg.Metadata.Metas...)
+	}
+
+	// Marshal back to XML with proper formatting
+	out, err := xml.MarshalIndent(pkg, "", "  ")
+	if err != nil {
+		return opfData, err
+	}
+
+	// Add XML declaration and remove unnecessary whitespace
+	out = append([]byte(xml.Header), out...)
+	out = regexp.MustCompile(`>\s+<`).ReplaceAll(out, []byte(">\n<"))
+
+	// --- Manual metadata serialization to guarantee all <meta> are escaped ---
+	metadataStart := []byte("<metadata>")
+	metadataEnd := []byte("</metadata>")
+	var metaItems []string
+	for _, m := range pkg.Metadata.Metas {
+		attrs := []string{}
+		if m.Name != "" {
+			attrs = append(attrs, "name=\""+xmlEscape(m.Name)+"\"")
+		}
+		if m.Property != "" {
+			attrs = append(attrs, "property=\""+xmlEscape(m.Property)+"\"")
+		}
+		if m.Content != "" {
+			attrs = append(attrs, "content=\""+xmlEscape(m.Content)+"\"")
+		}
+		metaItems = append(metaItems, "  <meta "+strings.Join(attrs, " ")+"/>")
+	}
+	metadataBlock := string(metadataStart) + "\n" + strings.Join(metaItems, "\n") + "\n" + string(metadataEnd)
+	out = regexp.MustCompile(`<metadata[\s\S]*?</metadata>`).ReplaceAll(out, []byte(metadataBlock))
+
+	// --- Manual manifest serialization to guarantee <item id="cover" ...> is first ---
+	manifestStart := []byte("<manifest>")
+	manifestEnd := []byte("</manifest>")
+	var manifestItems []string
+	for _, it := range pkg.Manifest.Items {
+		attrs := []string{
+			"id=\"" + xmlEscape(it.ID) + "\"",
+			"href=\"" + xmlEscape(it.Href) + "\"",
+			"media-type=\"" + xmlEscape(it.MediaType) + "\"",
+		}
+		if it.Properties != "" {
+			attrs = append(attrs, "properties=\""+xmlEscape(it.Properties)+"\"")
+		}
+		manifestItems = append(manifestItems, "  <item "+strings.Join(attrs, " ")+"/>")
+	}
+	// Reorder so <item id="cover" ...> is first
+	coverIdx = -1
+	for i, line := range manifestItems {
+		if strings.Contains(line, "id=\"cover\"") {
+			coverIdx = i
+			break
+		}
+	}
+	if coverIdx > 0 {
+		cover := manifestItems[coverIdx]
+		manifestItems = append(manifestItems[:coverIdx], manifestItems[coverIdx+1:]...)
+		manifestItems = append([]string{cover}, manifestItems...)
+	}
+	manifestBlock := string(manifestStart) + "\n" + strings.Join(manifestItems, "\n") + "\n" + string(manifestEnd)
+	out = regexp.MustCompile(`<manifest[\s\S]*?</manifest>`).ReplaceAll(out, []byte(manifestBlock))
+
+	// Write debug output for inspection
+	// _ = os.WriteFile("/home/felix/src/kojirou/cmd/formats/epub/_debug_last_opf.xml", out, 0644)
+
+	return out, nil
 }

@@ -151,7 +151,7 @@ func TestKEPUBConversion(t *testing.T) {
 			}
 
 			// Convert to KEPUB format
-			kepubData, err := kepubconv.ConvertToKEPUB(epub)
+			kepubData, err := kepubconv.ConvertToKEPUB(epub, "", 0)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConvertToKEPUB() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -293,7 +293,7 @@ func TestKEPUBDirectoryManagement(t *testing.T) {
 			}
 
 			// Convert to KEPUB, which should use the temp directory
-			_, err = kepubconv.ConvertToKEPUB(epub)
+			_, err = kepubconv.ConvertToKEPUB(epub, "", 0)
 			if err != nil {
 				t.Fatalf("ConvertToKEPUB() failed: %v", err)
 			}

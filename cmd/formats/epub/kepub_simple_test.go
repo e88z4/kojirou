@@ -29,7 +29,7 @@ func TestKEPUBSimple(t *testing.T) {
 	}()
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}

@@ -63,8 +63,8 @@ func TestBasicKEPUBConversion(t *testing.T) {
 		t.Fatalf("Failed to add image section: %v", err)
 	}
 
-	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(e)
+	// Convert to KEPUB with default empty series metadata
+	kepubData, err := kepubconv.ConvertToKEPUB(e, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}

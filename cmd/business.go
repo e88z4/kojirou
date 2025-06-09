@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/bmaupin/go-epub"
@@ -62,6 +64,20 @@ func run() error {
 	}
 
 	return nil
+}
+
+// sanitizePOSIXName replaces or removes characters not allowed in POSIX file and folder names
+func sanitizePOSIXName(name string) string {
+	// Remove or replace problematic characters
+	replacer := strings.NewReplacer("/", "_", "\x00", "_")
+	name = replacer.Replace(name)
+	// Remove leading/trailing spaces and dots
+	name = strings.Trim(name, " .")
+	// Avoid reserved names
+	if name == "" || name == "." || name == ".." {
+		name = "untitled"
+	}
+	return name
 }
 
 // 6. Report consolidated status at the end
@@ -188,6 +204,28 @@ func HandleVolume(skeleton md.Manga, volume md.Volume, dir kindle.NormalizedDire
 			outputFormat = &output.EpubOutput{Epub: sharedEpub}
 
 		case formats.FormatKepub:
+			// Kobo folder mode: output KEPUBs to KoboBooks/<Series Title>/
+			if koboFolderModeArg {
+				seriesTitle := sanitizePOSIXName(skeleton.Info.Title)
+				outputDir := path.Join("KoboBooks", seriesTitle)
+				if err := os.MkdirAll(outputDir, 0755); err != nil {
+					return fmt.Errorf("failed to create KoboBooks output dir: %w", err)
+				}
+				volumeName := sanitizePOSIXName(volume.Info.Identifier.StringFilled(fillVolumeNumberArg, 0, false))
+				filename := fmt.Sprintf("%s v%s.kepub.epub", seriesTitle, volumeName)
+				outputPath := path.Join(outputDir, filename)
+				data, err := outputFormat.GetBytes()
+				if err != nil {
+					return fmt.Errorf("get bytes: %w", err)
+				}
+				if err := os.WriteFile(outputPath, data, 0644); err != nil {
+					return fmt.Errorf("write KEPUB: %w", err)
+				}
+				formatStatus[format] = "Success"
+				formatProgress.Done()
+				summaryProgress.FormatCompleted(string(format), "Success")
+				continue
+			}
 			// We already generated the EPUB above, use it for KEPUB
 			outputFormat = &output.KepubOutput{Epub: sharedEpub}
 		}

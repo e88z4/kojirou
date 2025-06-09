@@ -35,6 +35,27 @@ udisksctl mount -b /dev/sdb
 rsync kindle/ /run/media/user/Kindle/
 ```
 
+### Generate Kobo folder structure for easy synchronization
+
+Kojirou can also output a folder structure matching that of Kobo devices for easy organization and transfer. When using the `--kobo-folder-mode` flag with KEPUB output, files are placed in `KoboBooks/<Series Title>/` and named `<Series Title> v<Volume>.kepub.epub`.
+
+```shell
+kojirou d86cf65b-5f6c-437d-a0af-19a31f94ec55 -l en --file-type=kepub --kobo-folder-mode
+# or using the short flag
+kojirou d86cf65b-5f6c-437d-a0af-19a31f94ec55 -l en --file-type=kepub -K
+```
+
+This will produce a structure like:
+
+```
+KoboBooks/
+  My Manga Series/
+    My Manga Series v01.kepub.epub
+    My Manga Series v02.kepub.epub
+```
+
+You can then copy the `KoboBooks/` directory to your Kobo device.
+
 ### Customize ranking for better scantlations
 
 Kojirou has the ability to use different [ranking algorithms](https://github.com/leotaku/kojirou/wiki/Ranking) in order to always download the highest-quality scantlations.

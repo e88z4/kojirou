@@ -1,8 +1,8 @@
 package epub
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 
 	"github.com/bmaupin/go-epub"
 	kepubconv "github.com/leotaku/kojirou/cmd/formats/kepubconv"
@@ -13,7 +13,7 @@ import (
 // TestKEPUBNilInput tests that ConvertToKEPUB handles nil input
 func TestKEPUBNilInput(t *testing.T) {
 	// Should fail because input is nil
-	_, err := kepubconv.ConvertToKEPUB(nil)
+	_, err := kepubconv.ConvertToKEPUB(nil, "", 0)
 	if err == nil {
 		t.Error("ConvertToKEPUB() should fail with nil input")
 	}
@@ -26,7 +26,7 @@ func TestKEPUBEmptyEPUB(t *testing.T) {
 	emptyEpub.SetAuthor("Test Author")
 
 	// Should fail because it has no content
-	_, err := kepubconv.ConvertToKEPUB(emptyEpub)
+	_, err := kepubconv.ConvertToKEPUB(emptyEpub, "", 0)
 	if err == nil {
 		t.Error("ConvertToKEPUB() should fail with empty EPUB")
 	}
@@ -48,8 +48,8 @@ func TestKEPUBSpecialCharacters(t *testing.T) {
 		}
 	}()
 
-	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	// Convert to KEPUB with the manga's title as the series
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, manga.Info.Title, 1)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestKEPUBMalformedEPUB(t *testing.T) {
 	}
 
 	// Try to convert to KEPUB - should still succeed since we try to handle malformed HTML
-	kepubData, err := kepubconv.ConvertToKEPUB(malformedEpub)
+	kepubData, err := kepubconv.ConvertToKEPUB(malformedEpub, "Test Series", 1)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed with malformed HTML: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestKEPUBLargeContent(t *testing.T) {
 	}
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, manga.Info.Title, 1)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}

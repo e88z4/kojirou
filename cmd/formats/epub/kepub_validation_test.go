@@ -45,7 +45,7 @@ func TestCompleteKEPUBImplementation(t *testing.T) {
 	}()
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestKEPUBImplementationChecklist(t *testing.T) {
 	}
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(e)
+	kepubData, err := kepubconv.ConvertToKEPUB(e, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestKEPUBRegressions(t *testing.T) {
 			epubObj := test.setupEpub()
 
 			// Convert to KEPUB
-			kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+			kepubData, err := kepubconv.ConvertToKEPUB(epubObj, "", 0)
 			if err != nil {
 				t.Fatalf("ConvertToKEPUB() failed: %v", err)
 			}
@@ -220,7 +220,7 @@ func TestKEPUBCompleteness(t *testing.T) {
 	}
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(e)
+	kepubData, err := kepubconv.ConvertToKEPUB(e, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}

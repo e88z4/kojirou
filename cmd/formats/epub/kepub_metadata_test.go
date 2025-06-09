@@ -23,8 +23,10 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 
 	// Create test cases with different metadata configurations
 	testCases := []struct {
-		name      string
-		setupEpub func() *epub.Epub
+		name        string
+		setupEpub   func() *epub.Epub
+		seriesTitle string
+		seriesIndex float64
 	}{
 		{
 			name: "basic metadata",
@@ -35,6 +37,8 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 				e.SetLang("en")
 				return e
 			},
+			seriesTitle: "",
+			seriesIndex: 0,
 		},
 		{
 			name: "extensive metadata",
@@ -45,13 +49,10 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 				e.SetLang("en")
 				e.SetIdentifier("urn:uuid:12345678-1234-1234-1234-123456789012")
 				e.SetTitle("Extensive Metadata Test")
-				// Skip unsupported methods
-				// e.SetPubDate("2025-05-20")
-				// e.AddAuthor("Second Test Author")
-				// e.SetPublisher("Test Publisher")
-				// e.SetRights("Copyright © 2025")
 				return e
 			},
+			seriesTitle: "",
+			seriesIndex: 0,
 		},
 		{
 			name: "non-english metadata",
@@ -62,6 +63,8 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 				e.SetLang("ja")
 				return e
 			},
+			seriesTitle: "",
+			seriesIndex: 0,
 		},
 		{
 			name: "manga-specific metadata",
@@ -104,6 +107,52 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 				}()
 				return epubObj
 			},
+			seriesTitle: "Manga Metadata Test",
+			seriesIndex: 1,
+		},
+		{
+			name: "series metadata",
+			setupEpub: func() *epub.Epub {
+				// Create a manga object with series info
+				manga := md.Manga{
+					Info: md.MangaInfo{
+						Title:   "Test Series Volume 1",
+						Authors: []string{"Test Author"},
+						ID:      "test-series-v1",
+					},
+					Volumes: map[md.Identifier]md.Volume{
+						md.NewIdentifier("1"): {
+							Info: md.VolumeInfo{
+								Identifier: md.NewIdentifier("1"),
+							},
+							Cover: createTestImage(800, 1200, color.White),
+							Chapters: map[md.Identifier]md.Chapter{
+								md.NewIdentifier("1"): {
+									Info: md.ChapterInfo{
+										Title:            "Chapter 1",
+										Identifier:       md.NewIdentifier("1"),
+										VolumeIdentifier: md.NewIdentifier("1"),
+										Language:         language.English,
+									},
+									Pages: map[int]image.Image{
+										0: createTestImage(800, 1200, color.White),
+									},
+								},
+							},
+						},
+					},
+				}
+
+				epubObj, cleanup, _ := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				defer func() {
+					if cleanup != nil {
+						cleanup()
+					}
+				}()
+				return epubObj
+			},
+			seriesTitle: "Test Series",
+			seriesIndex: 1.0,
 		},
 	}
 
@@ -119,7 +168,7 @@ func TestKEPUBMetadataHandling(t *testing.T) {
 			}
 
 			// Convert to KEPUB
-			kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+			kepubData, err := kepubconv.ConvertToKEPUB(epubObj, tc.seriesTitle, tc.seriesIndex)
 			if err != nil {
 				t.Fatalf("ConvertToKEPUB() failed: %v", err)
 			}
@@ -146,7 +195,7 @@ func TestKEPUBKoboExtensionMetadata(t *testing.T) {
 	}
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(e)
+	kepubData, err := kepubconv.ConvertToKEPUB(e, "", 0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -213,7 +262,7 @@ func TestKEPUBMangaSpecificMetadata(t *testing.T) {
 	}
 
 	// Convert to KEPUB
-	kepubData, err := kepubconv.ConvertToKEPUB(epubObj)
+	kepubData, err := kepubconv.ConvertToKEPUB(epubObj, manga.Info.Title, 1.0)
 	if err != nil {
 		t.Fatalf("ConvertToKEPUB() failed: %v", err)
 	}
@@ -320,22 +369,34 @@ func verifyKoboMetadataExtensions(t *testing.T, data []byte) {
 	}
 
 	// Check for Kobo-specific metadata extensions
-	koboExtensions := []string{
-		"meta name=\"kobo",
-		"meta property=\"kobo",
-		"meta name=\"calibre:series", // Calibre-style series metadata often used by Kobo
+	requiredExtensions := []string{
+		"meta property=\"kobo:content-type\"",
+		"meta property=\"kobo:epub-version\"",
+		"meta property=\"rendition:layout\"",
+		"meta property=\"rendition:orientation\"",
+		"meta property=\"rendition:spread\"",
+		"meta property=\"rendition:flow\"",
+		"meta property=\"dcterms:modified\"",
+		"meta property=\"page-progression-direction\"",
 	}
 
-	foundExtensions := false
-	for _, ext := range koboExtensions {
-		if strings.Contains(opfContent, ext) {
-			foundExtensions = true
-			t.Logf("Found Kobo extension: %s", ext)
+	optionalExtensions := []string{
+		"meta name=\"calibre:series\"",
+		"meta name=\"calibre:series_index\"",
+	}
+
+	// Check for required extensions
+	for _, ext := range requiredExtensions {
+		if !strings.Contains(opfContent, ext) {
+			t.Errorf("Missing required Kobo extension: %s", ext)
 		}
 	}
 
-	if !foundExtensions {
-		t.Log("No Kobo-specific metadata extensions found")
+	// Log if optional extensions are found
+	for _, ext := range optionalExtensions {
+		if strings.Contains(opfContent, ext) {
+			t.Logf("Found optional extension: %s", ext)
+		}
 	}
 }
 
@@ -387,11 +448,20 @@ func verifyMangaMetadataInKEPUB(t *testing.T, data []byte, originalManga md.Mang
 			name:  "identifier",
 			value: originalManga.Info.ID,
 		},
+		{
+			name:  "series",
+			value: originalManga.Info.Title,
+		},
 	}
 
 	for _, meta := range mangaMetadata {
 		if !strings.Contains(opfContent, meta.value) {
 			t.Errorf("Manga %s metadata not properly preserved", meta.name)
 		}
+	}
+
+	// Check for series index metadata (should be "1.0" for most manga tests)
+	if !strings.Contains(opfContent, "meta name=\"calibre:series_index\" content=\"1.0\"") {
+		t.Error("Series index metadata not found or incorrect")
 	}
 }

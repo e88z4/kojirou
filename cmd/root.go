@@ -15,6 +15,7 @@ var (
 	autocropArg         bool
 	widepageArg         WidepagePolicyArg
 	kindleFolderModeArg bool
+	koboFolderModeArg   bool
 	dryRunArg           bool
 	outArg              string
 	forceArg            bool
@@ -180,6 +181,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&autocropArg, "autocrop", "a", false, "crop whitespace from pages automatically")
 	rootCmd.Flags().VarP(&widepageArg, "widepage", "w", "split wide pages automatically")
 	rootCmd.Flags().BoolVarP(&kindleFolderModeArg, "kindle-folder-mode", "k", false, "generate folder structure for Kindle devices")
+	rootCmd.Flags().BoolVarP(&koboFolderModeArg, "kobo-folder-mode", "K", false, "generate folder structure for Kobo devices (KoboBooks/<Series Title>/)")
 	rootCmd.Flags().BoolVarP(&leftToRightArg, "left-to-right", "p", false, "make reading direction left to right")
 	rootCmd.Flags().IntVarP(&fillVolumeNumberArg, "fill-volume-number", "n", 0, "fill volume number with leading zeros in title")
 	rootCmd.Flags().VarP(&dataSaverArg, "data-saver", "s", "download lower quality images to save space")
