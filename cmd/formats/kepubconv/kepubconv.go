@@ -279,7 +279,11 @@ func injectKoboMetadata(data []byte, seriesTitle string, seriesIndex float64) []
 // xmlEscape escapes special characters for XML attributes and text content
 func xmlEscape(s string) string {
 	var buf strings.Builder
-	xml.EscapeText(&buf, []byte(s))
+	err := xml.EscapeText(&buf, []byte(s))
+	if err != nil {
+		// If escaping fails, return the original string (should not happen)
+		return s
+	}
 	return buf.String()
 }
 

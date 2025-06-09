@@ -151,10 +151,6 @@ func (n *NormalizedDirectory) GetExistingFormats(identifier md.Identifier) map[s
 	return result
 }
 
-func pathnameFromTitle(filename string) string {
-	return util.SanitizePOSIXName(filename)
-}
-
 func exists(pathname string) bool {
 	_, err := os.Stat(pathname)
 	if errors.Is(err, fs.ErrNotExist) {

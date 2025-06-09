@@ -87,11 +87,9 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 			name: "standard epub to kepub",
 			setup: func() (*epub.Epub, error) {
 				manga := testhelpers.CreateTestManga()
-				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				epub, _, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if err != nil {
 					return nil, err
-				}
-				if cleanup != nil { //nolint:staticcheck // cleanup() will be called after KEPUB conversion below
 				}
 				return epub, nil
 			},
@@ -109,11 +107,9 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 			name: "epub to kepub with long series name",
 			setup: func() (*epub.Epub, error) {
 				manga := testhelpers.CreateTestManga()
-				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				epub, _, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if err != nil {
 					return nil, err
-				}
-				if cleanup != nil {
 				}
 				return epub, nil
 			},
@@ -131,11 +127,9 @@ func TestEPUBToKEPUBConversion(t *testing.T) {
 			name: "epub to kepub without series info",
 			setup: func() (*epub.Epub, error) {
 				manga := testhelpers.CreateTestManga()
-				epub, cleanup, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
+				epub, _, err := GenerateEPUB(t.TempDir(), manga, kindle.WidepagePolicyPreserve, false, false)
 				if err != nil {
 					return nil, err
-				}
-				if cleanup != nil {
 				}
 				return epub, nil
 			},
@@ -431,78 +425,6 @@ func validateKoboHTMLTransformation(t *testing.T, data []byte) {
 
 	if !foundTransformedHTML {
 		t.Error("No evidence of Kobo HTML transformations found")
-	}
-}
-
-// validateComplexNavigation checks for proper navigation in complex multi-volume content
-func validateComplexNavigation(t *testing.T, data []byte) {
-	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		t.Fatalf("Failed to read KEPUB as ZIP: %v", err)
-	}
-
-	// Look for navigation document and check for multiple volumes
-	var navContent []byte
-	for _, f := range r.File {
-		if strings.Contains(f.Name, "nav.xhtml") || strings.HasSuffix(f.Name, ".ncx") {
-			rc, err := f.Open()
-			if err != nil {
-				continue
-			}
-			navContent, err = io.ReadAll(rc)
-			rc.Close()
-			if err != nil {
-				continue
-			}
-			break
-		}
-	}
-
-	if len(navContent) == 0 {
-		t.Fatal("No navigation document found")
-	}
-
-	// Check that volume navigation is present
-	volumeNavPresent := bytes.Contains(navContent, []byte("Volume 1")) ||
-		bytes.Contains(navContent, []byte("Volume 2")) ||
-		bytes.Contains(navContent, []byte("vol1")) ||
-		bytes.Contains(navContent, []byte("vol2"))
-
-	if !volumeNavPresent {
-		t.Error("Complex navigation doesn't contain volume structure")
-	}
-}
-
-// validateMinimalContent checks for basic content in a minimally created KEPUB
-func validateMinimalContent(t *testing.T, data []byte) {
-	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		t.Fatalf("Failed to read KEPUB as ZIP: %v", err)
-	}
-
-	// Check for the minimal expected content
-	foundHTML := false
-	for _, f := range r.File {
-		if strings.HasSuffix(f.Name, ".xhtml") || strings.HasSuffix(f.Name, ".html") {
-			rc, err := f.Open()
-			if err != nil {
-				continue
-			}
-			content, err := io.ReadAll(rc)
-			rc.Close()
-			if err != nil {
-				continue
-			}
-
-			if bytes.Contains(content, []byte("Test Chapter")) {
-				foundHTML = true
-				break
-			}
-		}
-	}
-
-	if !foundHTML {
-		t.Error("Minimal content not found in KEPUB")
 	}
 }
 
